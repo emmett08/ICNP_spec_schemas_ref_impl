@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/icnp/schemas/execution.schema.json",
+  "title": "ICNP Execution Messages",
+  "$defs": {
+    "ExecutionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invocation_id",
+        "token_id",
+        "contract_id",
+        "action",
+        "executor",
+        "requested_at",
+        "nonce",
+        "parameters"
+      ],
+      "properties": {
+        "invocation_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "token_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "contract_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "executor": {
+          "$ref": "common.schema.json#/$defs/Actor"
+        },
+        "requested_at": {
+          "$ref": "common.schema.json#/$defs/DateTime"
+        },
+        "nonce": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 256
+        },
+        "parameters": {
+          "type": "object"
+        }
+      }
+    },
+    "ExecutionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invocation_id",
+        "token_id",
+        "contract_id",
+        "status",
+        "started_at",
+        "ended_at"
+      ],
+      "properties": {
+        "invocation_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "token_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "contract_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "success",
+            "failure",
+            "denied",
+            "aborted"
+          ]
+        },
+        "started_at": {
+          "$ref": "common.schema.json#/$defs/DateTime"
+        },
+        "ended_at": {
+          "$ref": "common.schema.json#/$defs/DateTime"
+        },
+        "output": {
+          "type": "object"
+        },
+        "error": {
+          "type": "object"
+        },
+        "audit_event_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/UUID"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "const": "execution"
+        },
+        "type": {
+          "enum": [
+            "execution_request",
+            "execution_result"
+          ]
+        },
+        "payload": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "request": {
+                  "$ref": "#/$defs/ExecutionRequest"
+                }
+              },
+              "required": [
+                "request"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/$defs/ExecutionResult"
+                }
+              },
+              "required": [
+                "result"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

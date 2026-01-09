@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/icnp/schemas/capability.schema.json",
+  "title": "ICNP Capability Disclosure Message",
+  "allOf": [
+    {
+      "$ref": "envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "capability_disclosure"
+        },
+        "phase": {
+          "const": "capability"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "capabilities"
+          ],
+          "properties": {
+            "capabilities": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "capability_id",
+                  "name",
+                  "actions"
+                ],
+                "properties": {
+                  "capability_id": {
+                    "$ref": "common.schema.json#/$defs/UUID"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "actions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "action"
+                      ],
+                      "properties": {
+                        "action": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "scopes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "requires_approval": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "confidence": {
+                          "type": "number",
+                          "minimum": 0.0,
+                          "maximum": 1.0
+                        },
+                        "effects": {
+                          "type": "string",
+                          "enum": [
+                            "none",
+                            "read",
+                            "write",
+                            "network",
+                            "file",
+                            "process"
+                          ]
+                        },
+                        "parameters_schema": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  },
+                  "constraints": {
+                    "type": "object"
+                  },
+                  "cost_model": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

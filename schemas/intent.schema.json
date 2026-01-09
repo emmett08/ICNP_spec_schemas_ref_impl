@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/icnp/schemas/intent.schema.json",
+  "title": "ICNP Intent Declaration Message",
+  "allOf": [
+    {
+      "$ref": "envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "intent_declaration"
+        },
+        "phase": {
+          "const": "intent"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "intent",
+            "constraints"
+          ],
+          "properties": {
+            "intent": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "goal",
+                "requested_actions"
+              ],
+              "properties": {
+                "goal": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": {
+                  "type": "string"
+                },
+                "context": {
+                  "type": "object"
+                },
+                "requested_actions": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "action"
+                    ],
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "priority": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    }
+                  }
+                },
+                "success_criteria": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "expected_outputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "constraints": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "risk_tolerance",
+                "human_approval_required"
+              ],
+              "properties": {
+                "risk_tolerance": {
+                  "type": "string",
+                  "enum": [
+                    "low",
+                    "medium",
+                    "high"
+                  ]
+                },
+                "human_approval_required": {
+                  "type": "boolean"
+                },
+                "external_side_effects_allowed": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "audit_level": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "minimal",
+                    "standard",
+                    "full"
+                  ],
+                  "default": "standard"
+                },
+                "time_budget_ms": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "data_policy": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "allowed_data_classes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "retention_days": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

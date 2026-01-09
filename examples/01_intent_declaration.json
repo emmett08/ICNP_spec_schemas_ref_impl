@@ -1,0 +1,54 @@
+{
+  "icnp_version": "1.0.0",
+  "type": "intent_declaration",
+  "phase": "intent",
+  "message_id": "15e5661a-455b-47c1-8a35-9a6152755116",
+  "session_id": "4c0fba9b-77a9-4917-bf95-ff09f3bf8dd9",
+  "timestamp": "2026-01-09T13:05:22Z",
+  "sender": {
+    "id": "agent-orchestrator",
+    "role": "orchestrator",
+    "display_name": "Orchestrator"
+  },
+  "payload": {
+    "intent": {
+      "goal": "Produce a short technical explainer on how CPNs relate to CTL/LTL model checking.",
+      "requested_actions": [
+        {
+          "action": "compose_outline",
+          "description": "Propose an outline"
+        },
+        {
+          "action": "write_draft",
+          "description": "Write a draft explanation"
+        },
+        {
+          "action": "review_text",
+          "description": "Review and propose improvements"
+        },
+        {
+          "action": "summarise_text",
+          "description": "Summarise final content"
+        }
+      ],
+      "expected_outputs": [
+        "outline",
+        "draft",
+        "review_notes",
+        "final_summary"
+      ]
+    },
+    "constraints": {
+      "risk_tolerance": "low",
+      "human_approval_required": false,
+      "external_side_effects_allowed": false,
+      "audit_level": "standard",
+      "data_policy": {
+        "allowed_data_classes": [
+          "public"
+        ],
+        "retention_days": 0
+      }
+    }
+  }
+}

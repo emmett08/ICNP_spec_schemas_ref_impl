@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/icnp/schemas/execution-token.schema.json",
+  "title": "ICNP Execution Token Message",
+  "$defs": {
+    "Token": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token_id",
+        "session_id",
+        "contract_id",
+        "issuer",
+        "audience",
+        "issued_at",
+        "not_before",
+        "not_after",
+        "limits",
+        "binding",
+        "signature"
+      ],
+      "properties": {
+        "token_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "session_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "contract_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "issuer": {
+          "$ref": "common.schema.json#/$defs/Actor"
+        },
+        "audience": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "common.schema.json#/$defs/Actor"
+          }
+        },
+        "subject": {
+          "$ref": "common.schema.json#/$defs/Actor"
+        },
+        "issued_at": {
+          "$ref": "common.schema.json#/$defs/DateTime"
+        },
+        "not_before": {
+          "$ref": "common.schema.json#/$defs/DateTime"
+        },
+        "not_after": {
+          "$ref": "common.schema.json#/$defs/DateTime"
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_invocations_per_actor"
+          ],
+          "properties": {
+            "max_invocations_total": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_invocations_per_actor": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "intent_hash",
+            "contract_hash",
+            "capabilities_hash"
+          ],
+          "properties": {
+            "intent_hash": {
+              "$ref": "common.schema.json#/$defs/Hash"
+            },
+            "contract_hash": {
+              "$ref": "common.schema.json#/$defs/Hash"
+            },
+            "capabilities_hash": {
+              "$ref": "common.schema.json#/$defs/Hash"
+            }
+          }
+        },
+        "revocation": {
+          "type": "object"
+        },
+        "signature": {
+          "$ref": "common.schema.json#/$defs/Signature"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "execution_token"
+        },
+        "phase": {
+          "const": "token"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "token"
+          ],
+          "properties": {
+            "token": {
+              "$ref": "#/$defs/Token"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

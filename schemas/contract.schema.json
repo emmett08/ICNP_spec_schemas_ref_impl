@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/icnp/schemas/contract.schema.json",
+  "title": "ICNP Contract Negotiation Messages",
+  "$defs": {
+    "Enforcement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "violation_action",
+        "audit_level",
+        "logging_required",
+        "rollback_required"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "strict",
+            "permissive",
+            "audit_only"
+          ]
+        },
+        "violation_action": {
+          "type": "string",
+          "enum": [
+            "abort",
+            "abort_and_rollback",
+            "warn",
+            "log"
+          ]
+        },
+        "audit_level": {
+          "type": "string",
+          "enum": [
+            "none",
+            "minimal",
+            "standard",
+            "full"
+          ]
+        },
+        "logging_required": {
+          "type": "boolean"
+        },
+        "rollback_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_id",
+        "approver",
+        "decision",
+        "timestamp"
+      ],
+      "properties": {
+        "approval_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "approver": {
+          "$ref": "common.schema.json#/$defs/Actor"
+        },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "approve",
+            "reject"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "timestamp": {
+          "$ref": "common.schema.json#/$defs/DateTime"
+        }
+      }
+    },
+    "AgreedAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_id",
+        "capability_id",
+        "executor_id",
+        "action"
+      ],
+      "properties": {
+        "action_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "capability_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "executor_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "scope": {
+          "type": "string"
+        },
+        "max_invocations": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "requires_approval": {
+          "type": "boolean",
+          "default": false
+        },
+        "parameters_constraints": {
+          "type": "object"
+        }
+      }
+    },
+    "ForbiddenAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "scope": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "Contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_id",
+        "session_id",
+        "issued_at",
+        "agreed_actions",
+        "enforcement"
+      ],
+      "properties": {
+        "contract_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "session_id": {
+          "$ref": "common.schema.json#/$defs/UUID"
+        },
+        "issued_at": {
+          "$ref": "common.schema.json#/$defs/DateTime"
+        },
+        "parties": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/Actor"
+          },
+          "minItems": 1
+        },
+        "agreed_actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AgreedAction"
+          },
+          "minItems": 1
+        },
+        "forbidden_actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ForbiddenAction"
+          }
+        },
+        "constraints": {
+          "type": "object"
+        },
+        "enforcement": {
+          "$ref": "#/$defs/Enforcement"
+        },
+        "approvals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Approval"
+          }
+        },
+        "signatures": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/Signature"
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "const": "contract"
+        },
+        "type": {
+          "enum": [
+            "contract_proposal",
+            "contract_counterproposal",
+            "contract_acceptance",
+            "contract_rejection"
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contract"
+          ],
+          "properties": {
+            "contract": {
+              "$ref": "#/$defs/Contract"
+            },
+            "decision": {
+              "type": "string",
+              "enum": [
+                "accept",
+                "reject"
+              ]
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

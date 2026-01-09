@@ -1,0 +1,75 @@
+{
+  "icnp_version": "1.0.0",
+  "type": "execution_token",
+  "phase": "token",
+  "message_id": "76e9f74c-aeec-49e4-8df7-69258f96c8c2",
+  "session_id": "4c0fba9b-77a9-4917-bf95-ff09f3bf8dd9",
+  "timestamp": "2026-01-09T13:05:22Z",
+  "sender": {
+    "id": "agent-orchestrator",
+    "role": "orchestrator",
+    "display_name": "Orchestrator"
+  },
+  "payload": {
+    "token": {
+      "token_id": "a41f5ec7-6de8-4bf6-93f5-a8b6adb05aca",
+      "session_id": "4c0fba9b-77a9-4917-bf95-ff09f3bf8dd9",
+      "contract_id": "83d699de-c166-4007-a03d-0e0ca08481fc",
+      "issuer": {
+        "id": "agent-orchestrator",
+        "role": "orchestrator",
+        "display_name": "Orchestrator"
+      },
+      "audience": [
+        {
+          "id": "agent-planner",
+          "role": "agent",
+          "display_name": "Planner"
+        },
+        {
+          "id": "agent-writer",
+          "role": "agent",
+          "display_name": "Writer"
+        },
+        {
+          "id": "agent-reviewer",
+          "role": "agent",
+          "display_name": "Reviewer"
+        },
+        {
+          "id": "agent-summariser",
+          "role": "agent",
+          "display_name": "Summariser"
+        }
+      ],
+      "issued_at": "2026-01-09T13:05:22Z",
+      "not_before": "2026-01-09T13:05:22Z",
+      "not_after": "2026-01-09T13:15:22Z",
+      "limits": {
+        "max_invocations_per_actor": 3,
+        "max_invocations_total": 20
+      },
+      "binding": {
+        "intent_hash": {
+          "alg": "sha256",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "contract_hash": {
+          "alg": "sha256",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "capabilities_hash": {
+          "alg": "sha256",
+          "value": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "signature": {
+        "alg": "hmac-sha256",
+        "value": "BASE64_SIGNATURE",
+        "key_id": "demo-key",
+        "signed_by": "agent-orchestrator",
+        "signed_at": "2026-01-09T13:05:22Z"
+      }
+    }
+  }
+}
