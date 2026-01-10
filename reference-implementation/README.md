@@ -190,6 +190,12 @@ python -m http.server 8000
 # then open http://localhost:8000/reference-implementation/demo_graph_intent_flow.html
 ```
 
+If you enable GitHub Pages for this repo (main branch, root), you can view it at:
+
+```
+https://emmett08.github.io/ICNP_spec_schemas_ref_impl/reference-implementation/demo_graph_intent_flow.html
+```
+
 ---
 
 ## Notes
