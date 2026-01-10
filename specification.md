@@ -3,8 +3,6 @@
 **Version:** 1.0.0-draft (inferred)  
 **Date:** 09 January 2026
 
-> **Important note (transparency):** This `specification.md` and the accompanying JSON schemas were **inferred** from limited context and are **not** the original artefacts you referenced. They are intended as a **coherent, internally consistent baseline** that matches the negotiation/token/enforcement concepts discussed in our thread. You should treat this as a starting point and adapt it to your actual system.
-
 ---
 
 ## Table of contents
