@@ -8,7 +8,7 @@ This repository contains:
 - `examples/`: example ICNP message bundles (mirrors `icnp/examples/`).
 - `reference-implementation/`: a runnable demo with 5 Ollama-backed agents.
 
-Illustration of agents with power constrained by ICNP (bull with a yoke).
+Illustration of agents with power constrained by ICNP.
 
 <img src="assets/bull-yoke.svg" width="360" alt="Bull with a yoke representing constrained power" />
 
