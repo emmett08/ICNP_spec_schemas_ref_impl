@@ -7,6 +7,30 @@ This repository contains:
 - `examples/`: example ICNP messages matching the schemas.
 - `reference-implementation/`: a runnable demo with 5 Ollama-backed agents.
 
+## Overview
+
+ICNP (Inter-Component Negotiation Protocol) is a session-based protocol for
+multi-agent and multi-component systems. It defines a clear handshake for
+declaring intent, disclosing capabilities, negotiating an explicit contract,
+issuing an execution token, and producing governed execution/audit records.
+
+### What gap it fills
+
+Modern agent systems often rely on implicit assumptions about authority and
+side effects. ICNP makes those assumptions explicit by standardizing:
+
+- What is being asked for (intent)
+- What each participant can do (capability)
+- What is permitted or forbidden (contract)
+- Who is authorized, for how long, and under what limits (token)
+
+### Why it is needed
+
+Without a shared negotiation protocol, systems are harder to audit, constrain,
+and compose safely. ICNP provides a concrete, verifiable trail from goals to
+execution, enabling consistent enforcement and easier integration across
+heterogeneous agents, tools, and services.
+
 ## Quick start (demo)
 
 ```bash
@@ -44,7 +68,5 @@ Animated intent graph (GitHub Pages):
 ```
 https://emmett08.github.io/ICNP_spec_schemas_ref_impl/reference-implementation/demo_graph_intent_flow.html
 ```
-
-Enable GitHub Pages (main branch, root) in repo settings to use this URL.
 
 See `reference-implementation/README.md` for full usage and options.
