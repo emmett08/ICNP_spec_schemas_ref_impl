@@ -1,6 +1,6 @@
 # ICNP — Inter-Component Negotiation Protocol
 **Inferred reference specification (draft)**  
-**Version:** 1.0.0-draft (inferred)  
+**Version:** 1.0.0-draft  
 **Date:** 09 January 2026
 
 ---
