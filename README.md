@@ -1,23 +1,31 @@
-# ICNP Spec, Schemas, and Reference Implementation
+# ICNP - Intent-and-Capability Negotiation Protocol
 
 This repository contains:
 
-- `specification.md`: the ICNP specification.
-- `schemas/`: JSON Schemas for ICNP message types.
-- `examples/`: example ICNP messages matching the schemas.
+- `icnp/`: canonical ICNP docs (specification, schemas, examples, guides).
+- `specification.md`: ICNP protocol specification (mirrors `icnp/specification.md`).
+- `schemas/`: JSON Schemas for ICNP messages (mirrors `icnp/schemas/`).
+- `examples/`: example ICNP message bundles (mirrors `icnp/examples/`).
 - `reference-implementation/`: a runnable demo with 5 Ollama-backed agents.
 
 ## Overview
 
-ICNP (Inter-Component Negotiation Protocol) is a session-based protocol for
-multi-agent and multi-component systems. It defines a clear handshake for
-declaring intent, disclosing capabilities, negotiating an explicit contract,
-issuing an execution token, and producing governed execution/audit records.
+ICNP (Intent-and-Capability Negotiation Protocol) is a first-class, machine-readable
+protocol for expressing intent, negotiating capabilities, and enforcing contracts
+between components, services, agents, and humans-in-the-loop **before** any data
+exchange or API call happens.
+
+It defines a clear handshake:
+
+1. Intent declaration
+2. Capability disclosure
+3. Contract negotiation
+4. Execution token issuance
 
 ### What gap it fills
 
-Modern agent systems often rely on implicit assumptions about authority and
-side effects. ICNP makes those assumptions explicit by standardizing:
+Modern systems often rely on implicit assumptions about authority and side
+effects. ICNP makes those assumptions explicit by standardizing:
 
 - What is being asked for (intent)
 - What each participant can do (capability)
@@ -30,6 +38,9 @@ Without a shared negotiation protocol, systems are harder to audit, constrain,
 and compose safely. ICNP provides a concrete, verifiable trail from goals to
 execution, enabling consistent enforcement and easier integration across
 heterogeneous agents, tools, and services.
+
+For the canonical protocol documentation, start with `icnp/README.md`.
+For a short terminology clarification, see `icnp-terminology.md`.
 
 ## Quick start (demo)
 
