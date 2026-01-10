@@ -8,6 +8,29 @@ This repository contains:
 - `examples/`: example ICNP message bundles (mirrors `icnp/examples/`).
 - `reference-implementation/`: a runnable demo with 5 Ollama-backed agents.
 
+## Bull with yoke
+
+<svg width="360" height="180" viewBox="0 0 360 180" role="img" aria-label="Bull with yoke" xmlns="http://www.w3.org/2000/svg">
+  <rect width="360" height="180" fill="none"/>
+  <ellipse cx="210" cy="95" rx="95" ry="45" fill="#5a3b2e"/>
+  <circle cx="120" cy="95" r="28" fill="#5a3b2e"/>
+  <ellipse cx="110" cy="105" rx="10" ry="12" fill="#3b261e"/>
+  <ellipse cx="130" cy="105" rx="10" ry="12" fill="#3b261e"/>
+  <path d="M 95 75 C 75 55, 45 55, 30 75" fill="none" stroke="#3b261e" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 145 75 C 165 55, 195 55, 210 75" fill="none" stroke="#3b261e" stroke-width="6" stroke-linecap="round"/>
+  <rect x="135" y="70" width="140" height="22" rx="10" fill="#d6a15a" stroke="#8a5b2b" stroke-width="3"/>
+  <rect x="185" y="88" width="40" height="22" rx="8" fill="#d6a15a" stroke="#8a5b2b" stroke-width="3"/>
+  <circle cx="150" cy="81" r="4" fill="#8a5b2b"/>
+  <circle cx="260" cy="81" r="4" fill="#8a5b2b"/>
+  <rect x="175" y="125" width="16" height="35" rx="4" fill="#5a3b2e"/>
+  <rect x="205" y="125" width="16" height="35" rx="4" fill="#5a3b2e"/>
+  <rect x="235" y="125" width="16" height="35" rx="4" fill="#5a3b2e"/>
+  <rect x="265" y="125" width="16" height="35" rx="4" fill="#5a3b2e"/>
+  <circle cx="110" cy="90" r="4" fill="#1c1b1a"/>
+  <circle cx="130" cy="90" r="4" fill="#1c1b1a"/>
+  <path d="M 113 102 Q 120 108 127 102" fill="none" stroke="#1c1b1a" stroke-width="3" stroke-linecap="round"/>
+</svg>
+
 ## Overview
 
 ICNP (Intent-and-Capability Negotiation Protocol) is a first-class, machine-readable
