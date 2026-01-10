@@ -39,4 +39,12 @@ If you see `requires a different Python: 3.9.6 not in '>=3.10'`, delete the
 `.venv` and recreate it after setting `pyenv local` and confirming
 `python --version` is 3.10+.
 
+Animated intent graph (GitHub Pages):
+
+```
+https://emmett08.github.io/ICNP_spec_schemas_ref_impl/reference-implementation/demo_graph_intent_flow.html
+```
+
+Enable GitHub Pages (main branch, root) in repo settings to use this URL.
+
 See `reference-implementation/README.md` for full usage and options.
