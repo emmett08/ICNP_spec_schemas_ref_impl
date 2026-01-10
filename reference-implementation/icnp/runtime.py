@@ -54,7 +54,6 @@ class Actor:
 class SchemaRegistry:
     """Loads and validates messages against the provided JSON schemas."""
     def __init__(self, schemas_path: str):
-        import os
         from pathlib import Path
 
         self.schemas_path = Path(schemas_path)
@@ -65,22 +64,18 @@ class SchemaRegistry:
         for p in self.schemas_path.glob("*.schema.json"):
             self._schemas[p.name] = json.loads(p.read_text(encoding="utf-8"))
 
-        # Resolve references using a simple in-memory store keyed by schema $id and by filename.
-        from jsonschema import RefResolver
+        from referencing import Registry, Resource
+        from referencing.jsonschema import DRAFT202012
 
-        self._resolvers: Dict[str, RefResolver] = {}
+        registry = Registry()
         for name, schema in self._schemas.items():
-            store = {}
-            for other in self._schemas.values():
-                if "$id" in other:
-                    store[other["$id"]] = other
-            # Also allow filename refs
-            for fname, other in self._schemas.items():
-                store[fname] = other
+            resource = Resource.from_contents(schema, default_specification=DRAFT202012)
+            if "$id" in schema:
+                registry = registry.with_resource(schema["$id"], resource)
+            registry = registry.with_resource(name, resource)
 
-            resolver = RefResolver.from_schema(schema, store=store)
-            self._resolvers[name] = resolver
-            self._validators[name] = Draft202012Validator(schema, resolver=resolver)
+        for name, schema in self._schemas.items():
+            self._validators[name] = Draft202012Validator(schema, registry=registry)
 
     def validate(self, schema_filename: str, message: Dict[str, Any]) -> Tuple[bool, List[str]]:
         v = self._validators[schema_filename]

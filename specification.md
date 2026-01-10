@@ -83,6 +83,29 @@ A single process may play multiple roles.
 
 ## Core concepts
 
+### Intent (intentional vs intensional)
+
+ICNP uses "intent" in the intentional sense: a declaration of purpose and desired
+outcome under constraints. It is not "intensional" in the logic/semantics sense
+of describing meanings via context-dependent predicates or descriptions. In
+short: "intent" here is about what you want to achieve, not how a term is
+defined in a formal logic.
+
+What intent refers to in ICNP (common scopes):
+
+- Session/workflow intent: the `intent_declaration` payload (`intent.goal`,
+  `intent.requested_actions`, and constraints). This is the normative intent for
+  the session and is what negotiation binds to.
+- Agent intent: a participant's internal goal or local policy. It may influence
+  capability disclosure or contract negotiation, but it is not part of the
+  protocol unless surfaced explicitly (e.g., in constraints or extensions).
+- Contract intent: the explicit commitments encoded in the negotiated contract.
+  Once accepted, this constrains execution regardless of individual agent intent.
+
+If multiple kinds of intent must be expressed, keep them explicit and scoped
+(e.g., in extensions or named constraint blocks) so that participants do not
+conflate workflow intent with local agent goals.
+
 ### Session
 
 A **session** represents one negotiation lifecycle.
@@ -461,4 +484,3 @@ See `examples/` for a complete 5-agent conversation that follows:
 - audit events
 
 The reference implementation under `reference-implementation/` reproduces the same flow using five Ollama-backed agents and prints every ICNP message exchanged.
-

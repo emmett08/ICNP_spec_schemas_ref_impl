@@ -10,11 +10,33 @@ This repository contains:
 ## Quick start (demo)
 
 ```bash
-cd reference-implementation
+# Optional: if you use pyenv
+pyenv install 3.14.2
+pyenv local 3.14.2
+```
+
+If `python --version` still shows 3.9.x after `pyenv local`, initialize pyenv in
+your shell (one-time setup) or run this in the current shell:
+
+```bash
+export PATH="$HOME/.pyenv/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv init -)"
+```
+
+Then create the venv and install the demo:
+
+```bash
+python --version  # should be 3.10+
 python -m venv .venv
 source .venv/bin/activate
-pip install -e .
-python demo_ollama_5_agents.py --model llama3.1:8b
+python -m pip install --upgrade pip setuptools
+python -m pip install -e reference-implementation
+python reference-implementation/demo_ollama_5_agents.py --model llama3.1:8b
 ```
+
+If you see `requires a different Python: 3.9.6 not in '>=3.10'`, delete the
+`.venv` and recreate it after setting `pyenv local` and confirming
+`python --version` is 3.10+.
 
 See `reference-implementation/README.md` for full usage and options.

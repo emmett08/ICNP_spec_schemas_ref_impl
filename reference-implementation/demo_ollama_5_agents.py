@@ -280,7 +280,7 @@ def main() -> int:
         session_id=session_id,
         payload={
             "intent": {
-                "goal": "Explain how Coloured Petri Nets relate to CTL/LTL model checking.",
+                "goal": "Explain how Coloured Petri Nets (CPNs) relate to CTL/LTL model checking.",
                 "requested_actions": [
                     {"action": "compose_outline", "description": "Outline the explanation"},
                     {"action": "write_draft", "description": "Draft the explanation"},
@@ -407,11 +407,16 @@ def main() -> int:
 
     # ---------------- Governed execution ----------------
     # Parameters for each action
+    intent_goal = intent["payload"]["intent"]["goal"]
+    goal_note = (
+        f"Goal: {intent_goal}\n"
+        "Note: CPNs means Coloured Petri Nets (not Constraint Programming Networks).\n\n"
+    )
     prompts = {
-        "compose_outline": "Create a structured outline explaining how CPNs relate to CTL/LTL model checking. Use 5–8 bullet points.",
-        "write_draft": "Write a ~250 word draft explaining how CPNs relate to CTL/LTL model checking. Clear, technical, no fluff.",
+        "compose_outline": "Create a structured outline. Use 5-8 bullet points.",
+        "write_draft": "Write a ~250 word draft. Clear, technical, no fluff.",
         "review_text": "Review the following text and suggest improvements (accuracy, clarity, structure). Provide bullet points.",
-        "summarise_text": "Summarise the final content into a concise 120–160 word explanation.",
+        "summarise_text": "Summarise the final content into a concise 120-160 word explanation.",
     }
 
     outputs: Dict[str, str] = {}
@@ -420,7 +425,7 @@ def main() -> int:
     for ag in agents:
         action = ag.capability.action
         inv_id = new_uuid()
-        params = {"prompt": prompts[action]}
+        params = {"prompt": goal_note + prompts[action]}
         if action == "review_text":
             params["prompt"] += "\n\nTEXT:\n" + outputs.get("write_draft", "[draft missing]")
         if action == "summarise_text":
