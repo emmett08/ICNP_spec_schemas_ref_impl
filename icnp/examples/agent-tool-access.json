@@ -1,0 +1,185 @@
+{
+  "$comment": "Example: AI Agent requesting tool access for code review",
+
+  "intent_declaration": {
+    "icnp_version": "1.0",
+    "phase": "intent_declaration",
+    "message_id": "550e8400-e29b-41d4-a716-446655440001",
+    "timestamp": "2024-01-15T10:30:00Z",
+    "intent": {
+      "action": "execute-code-review",
+      "goals": [
+        { "id": "find-bugs", "priority": "high", "metric": "coverage > 80%" },
+        {
+          "id": "check-security",
+          "priority": "critical",
+          "standard": "OWASP-Top-10"
+        },
+        { "id": "suggest-improvements", "priority": "medium" }
+      ],
+      "non_goals": [
+        {
+          "id": "no-auto-commit",
+          "reason": "human review required",
+          "severity": "hard"
+        },
+        {
+          "id": "no-external-calls",
+          "reason": "air-gapped environment",
+          "severity": "hard"
+        }
+      ],
+      "constraints": {
+        "resources": { "max_cpu_cores": 4, "max_memory_gb": 8 },
+        "time_window": { "start": "09:00", "end": "18:00", "timezone": "UTC" }
+      },
+      "risk_tolerance": "none",
+      "human_approval_required": true,
+      "context": {
+        "project": "payment-service",
+        "environment": "development",
+        "urgency": "soon"
+      }
+    },
+    "sender": {
+      "id": "code-review-agent-001",
+      "type": "autonomous-agent",
+      "trust_level": "verified"
+    }
+  },
+
+  "capability_disclosure": {
+    "icnp_version": "1.0",
+    "phase": "capability_disclosure",
+    "in_reply_to": "550e8400-e29b-41d4-a716-446655440001",
+    "capabilities": [
+      {
+        "id": "repo-read",
+        "action": "read",
+        "scope": "repository",
+        "confidence": 0.99,
+        "requires_approval": false,
+        "side_effects": "none"
+      },
+      {
+        "id": "static-analysis",
+        "action": "analyze",
+        "scope": ["code", "dependencies"],
+        "confidence": 0.95,
+        "requires_approval": false,
+        "side_effects": "none",
+        "certifications": ["SAST-certified"]
+      },
+      {
+        "id": "security-scan",
+        "action": "analyze",
+        "scope": "security",
+        "confidence": 0.92,
+        "requires_approval": false,
+        "side_effects": "none",
+        "certifications": ["OWASP-compliant"]
+      },
+      {
+        "id": "suggest-fixes",
+        "action": "suggest",
+        "scope": "code",
+        "confidence": 0.85,
+        "requires_approval": false,
+        "side_effects": "none"
+      }
+    ],
+    "limitations": [
+      {
+        "id": "no-write",
+        "action": "write",
+        "scope": "repository",
+        "reason": "read-only access"
+      },
+      {
+        "id": "no-network",
+        "action": "execute",
+        "scope": "network",
+        "reason": "sandboxed"
+      }
+    ],
+    "resource_requirements": {
+      "compute": { "cpu_cores": 2, "memory_gb": 4 },
+      "estimated_duration_seconds": 300
+    },
+    "responder": {
+      "id": "code-analyzer-service",
+      "version": "3.2.1",
+      "certifications": ["SOC2", "ISO27001"]
+    }
+  },
+
+  "contract": {
+    "icnp_version": "1.0",
+    "phase": "contract_negotiation",
+    "contract_id": "550e8400-e29b-41d4-a716-446655440002",
+    "agreed_actions": [
+      { "capability_id": "repo-read", "approved": true },
+      { "capability_id": "static-analysis", "approved": true },
+      { "capability_id": "security-scan", "approved": true },
+      { "capability_id": "suggest-fixes", "approved": true }
+    ],
+    "forbidden_actions": [
+      {
+        "action": "write",
+        "scope": "repository",
+        "reason": "non-goal: no-auto-commit"
+      },
+      {
+        "action": "execute",
+        "scope": "network",
+        "reason": "non-goal: no-external-calls"
+      },
+      { "action": "delete", "scope": "any", "reason": "safety" }
+    ],
+    "execution_constraints": {
+      "audit_level": "full",
+      "logging_required": true,
+      "rollback_required": true,
+      "max_duration_seconds": 600,
+      "checkpoint_interval_seconds": 60
+    },
+    "approval_chain": [
+      {
+        "approver": "senior-developer-jane",
+        "approved_at": "2024-01-15T10:35:00Z"
+      }
+    ],
+    "signatures": {
+      "initiator": "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0...",
+      "responder": "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0..."
+    }
+  },
+
+  "execution_token": {
+    "icnp_version": "1.0",
+    "phase": "execution_token",
+    "token_id": "550e8400-e29b-41d4-a716-446655440003",
+    "contract_id": "550e8400-e29b-41d4-a716-446655440002",
+    "token": "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0.eyJjb250cmFjdF9pZCI6IjU1MGU4NDAwLWUyOWItNDFkNC1hNzE2LTQ0NjY1NTQ0MDAwMiIsImV4cCI6MTcwNTMxNjUwMH0.signature",
+    "validity": {
+      "not_before": "2024-01-15T10:35:00Z",
+      "not_after": "2024-01-15T11:35:00Z",
+      "max_invocations": 1
+    },
+    "binding": {
+      "intent_hash": "sha256:a1b2c3d4e5f6...",
+      "contract_hash": "sha256:f6e5d4c3b2a1...",
+      "capability_hashes": [
+        "sha256:1111111111...",
+        "sha256:2222222222...",
+        "sha256:3333333333...",
+        "sha256:4444444444..."
+      ]
+    },
+    "enforcement": {
+      "mode": "strict",
+      "violation_action": "abort_and_rollback",
+      "alert_on_violation": true
+    }
+  }
+}

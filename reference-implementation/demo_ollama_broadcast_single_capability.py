@@ -5,15 +5,19 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from icnp.runtime import (
-    Actor,
+    Responder,
     SchemaRegistry,
+    Sender,
     make_binding_hashes,
-    make_envelope,
+    make_capability_message,
+    make_contract_message,
+    make_demo_token,
+    make_execution_token_message,
+    make_intent_message,
     new_uuid,
-    rand_nonce,
     sign_token_hmac,
     utc_now_iso,
     verify_token_hmac,
@@ -33,14 +37,25 @@ def jprint(title: str, msg: Dict[str, Any]) -> None:
 class Capability:
     capability_id: str
     action: str
-    scope: str = "text"
+    scope: str
+
+
+@dataclass
+class AgentProfile:
+    agent_id: str
+    name: str
+    action: str
+    scope: str
+    system_prompt: str
 
 
 class ICNPAgent:
     def __init__(
         self,
         *,
-        actor: Actor,
+        responder: Responder,
+        action: str,
+        scope: str,
         model: str,
         system_prompt: str,
         secret: bytes,
@@ -48,169 +63,89 @@ class ICNPAgent:
         schema: SchemaRegistry,
         ollama: Optional[OllamaClient] = None,
     ):
-        self.actor = actor
-        self.model = model
+        self.responder = responder
         self.system_prompt = system_prompt
+        self.model = model
         self.secret = secret
         self.dry_run = dry_run
         self.schema = schema
         self.ollama = ollama
         self.invocations_by_token: Dict[str, int] = {}
 
-        # Each agent advertises exactly one capability in this demo.
-        self.capability = Capability(capability_id=new_uuid(), action="")
+        self.capability = Capability(capability_id=new_uuid(), action=action, scope=scope)
 
-    def capability_message(self, session_id: str, in_reply_to: str, recipient: Actor, action: str) -> Dict[str, Any]:
-        self.capability.action = action
-        msg = make_envelope(
-            icnp_version="1.0.0",
-            msg_type="capability_disclosure",
-            phase="capability",
-            sender=self.actor,
-            recipient=recipient,
-            session_id=session_id,
-            in_reply_to=in_reply_to,
-            payload={
-                "capabilities": [
-                    {
-                        "capability_id": self.capability.capability_id,
-                        "name": f"{self.actor.display_name} capability",
-                        "description": f"{self.actor.display_name} can perform {action}.",
-                        "actions": [
-                            {
-                                "action": action,
-                                "scopes": ["text"],
-                                "requires_approval": False,
-                                "confidence": 0.8,
-                                "effects": "none",
-                            }
-                        ],
-                    }
-                ]
-            },
+    def capability_message(self, intent_id: str) -> Dict[str, Any]:
+        cap = {
+            "id": self.capability.capability_id,
+            "action": self.capability.action,
+            "scope": self.capability.scope,
+            "confidence": 0.85,
+            "requires_approval": False,
+            "side_effects": "none",
+        }
+        msg = make_capability_message(
+            in_reply_to=intent_id,
+            capabilities=[cap],
+            responder=self.responder.to_dict(),
         )
         ok, errors = self.schema.validate("capability.schema.json", msg)
         if not ok:
             raise ValueError(f"Capability message schema errors: {errors}")
         return msg
 
-    def accept_contract(self, session_id: str, in_reply_to: str, recipient: Actor, contract_obj: Dict[str, Any]) -> Dict[str, Any]:
-        msg = make_envelope(
-            icnp_version="1.0.0",
-            msg_type="contract_acceptance",
-            phase="contract",
-            sender=self.actor,
-            recipient=recipient,
-            session_id=session_id,
-            in_reply_to=in_reply_to,
-            payload={"contract": contract_obj, "decision": "accept"},
-        )
-        ok, errors = self.schema.validate("contract.schema.json", msg)
-        if not ok:
-            raise ValueError(f"Contract acceptance schema errors: {errors}")
-        return msg
-
-    def verify_and_execute(self, message: Dict[str, Any], token_msg: Dict[str, Any], contract_obj: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """
-        Handle an execution_request and return [execution_result, audit_event].
-        """
-        request = message["payload"]["request"]
-        token = token_msg["payload"]["token"]
-
-        # Basic token checks: signature + time + audience + per-actor invocations.
-        token_body = dict(token)
-        signature = token_body.pop("signature")
+    def verify_and_execute(
+        self,
+        *,
+        parameters: Dict[str, Any],
+        token_meta: Dict[str, Any],
+        contract_obj: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        token_body = token_meta["body"]
+        signature = token_meta["signature"]
         if not verify_token_hmac(token_body, signature, secret=self.secret):
-            return [self.error_msg(message, "ICNP-005", "Token signature invalid")]
+            return self.execution_error("Token signature invalid")
 
+        validity = token_body["validity"]
         now = datetime.now(timezone.utc)
-        nb = datetime.fromisoformat(token["not_before"].replace("Z", "+00:00"))
-        na = datetime.fromisoformat(token["not_after"].replace("Z", "+00:00"))
+        nb = datetime.fromisoformat(validity["not_before"].replace("Z", "+00:00"))
+        na = datetime.fromisoformat(validity["not_after"].replace("Z", "+00:00"))
         if not (nb <= now < na):
-            return [self.error_msg(message, "ICNP-005", "Token expired or not yet valid")]
+            return self.execution_error("Token expired or not yet valid")
 
-        allowed_audience = {a["id"] for a in token["audience"]}
-        if self.actor.id not in allowed_audience:
-            return [self.error_msg(message, "ICNP-004", "Actor not in token audience")]
+        token_id = token_body["token_id"]
+        max_invocations = validity.get("max_invocations", 1)
+        self.invocations_by_token.setdefault(token_id, 0)
+        self.invocations_by_token[token_id] += 1
+        if self.invocations_by_token[token_id] > max_invocations:
+            return self.execution_error("Invocation limit exceeded")
 
-        # Per-actor limit enforcement
-        tok_id = token["token_id"]
-        self.invocations_by_token.setdefault(tok_id, 0)
-        self.invocations_by_token[tok_id] += 1
-        if self.invocations_by_token[tok_id] > token["limits"]["max_invocations_per_actor"]:
-            return [self.error_msg(message, "ICNP-004", "Invocation limit exceeded")]
-
-        # Contract check: action permitted for this executor
-        action = request["action"]
-        permitted = False
-        for aa in contract_obj["agreed_actions"]:
-            if aa["executor_id"] == self.actor.id and aa["action"] == action:
-                permitted = True
-                break
+        permitted = any(
+            aa["capability_id"] == self.capability.capability_id and aa.get("approved") is True
+            for aa in contract_obj["agreed_actions"]
+        )
         if not permitted:
-            return [self.error_msg(message, "ICNP-004", f"Action '{action}' not permitted for {self.actor.id}")]
+            return self.execution_error("Capability not approved in contract")
 
         started_at = utc_now_iso()
-        output_text = self.perform_action(action, request.get("parameters", {}))
+        output_text = self.perform_action(self.capability.action, parameters)
         ended_at = utc_now_iso()
 
-        result_env = make_envelope(
-            icnp_version="1.0.0",
-            msg_type="execution_result",
-            phase="execution",
-            sender=self.actor,
-            recipient=Actor(
-                id=message["sender"]["id"],
-                role=message["sender"]["role"],
-                display_name=message["sender"].get("display_name"),
-            ),
-            session_id=message["session_id"],
-            in_reply_to=message["message_id"],
-            payload={
-                "result": {
-                    "invocation_id": request["invocation_id"],
-                    "token_id": request["token_id"],
-                    "contract_id": request["contract_id"],
-                    "status": "success",
-                    "started_at": started_at,
-                    "ended_at": ended_at,
-                    "output": {"text": output_text},
-                }
-            },
-        )
-        ok, errors = self.schema.validate("execution.schema.json", result_env)
-        if not ok:
-            raise ValueError(f"Execution result schema errors: {errors}")
+        return {
+            "agent_id": self.responder.id,
+            "capability_id": self.capability.capability_id,
+            "action": self.capability.action,
+            "status": "success",
+            "started_at": started_at,
+            "ended_at": ended_at,
+            "output": {"text": output_text},
+        }
 
-        audit_env = make_envelope(
-            icnp_version="1.0.0",
-            msg_type="audit_event",
-            phase="audit",
-            sender=self.actor,
-            session_id=message["session_id"],
-            payload={
-                "event": {
-                    "event_id": new_uuid(),
-                    "session_id": message["session_id"],
-                    "related_message_id": message["message_id"],
-                    "invocation_id": request["invocation_id"],
-                    "event_type": "execution_completed",
-                    "actor": self.actor.__dict__ | {"display_name": self.actor.display_name},
-                    "timestamp": utc_now_iso(),
-                    "severity": "info",
-                    "details": {"action": action, "status": "success"},
-                }
-            },
-        )
-        ok, errors = self.schema.validate("audit.schema.json", audit_env)
-        if not ok:
-            raise ValueError(f"Audit schema errors: {errors}")
-
-        return [result_env, audit_env]
+    def execution_error(self, message: str) -> Dict[str, Any]:
+        return {"agent_id": self.responder.id, "status": "denied", "error": message}
 
     def perform_action(self, action: str, parameters: Dict[str, Any]) -> str:
         if self.dry_run or self.ollama is None:
-            return f"[dry-run:{self.actor.id}] Completed {action} with parameters={parameters!r}"
+            return f"[dry-run:{self.responder.id}] Completed {action} with parameters={parameters!r}"
 
         user_prompt = parameters.get("prompt", f"Perform action: {action}. Parameters: {json.dumps(parameters)}")
         messages = [
@@ -219,34 +154,20 @@ class ICNPAgent:
         ]
         return self.ollama.chat(self.model, messages)
 
-    def error_msg(self, related_message: Dict[str, Any], code: str, message: str) -> Dict[str, Any]:
-        env = make_envelope(
-            icnp_version="1.0.0",
-            msg_type="error",
-            phase="error",
-            sender=self.actor,
-            recipient=Actor(
-                id=related_message["sender"]["id"],
-                role=related_message["sender"]["role"],
-                display_name=related_message["sender"].get("display_name"),
-            ),
-            session_id=related_message["session_id"],
-            in_reply_to=related_message["message_id"],
-            payload={
-                "error": {
-                    "error_id": new_uuid(),
-                    "code": code,
-                    "message": message,
-                    "retryable": False,
-                    "related_message_id": related_message["message_id"],
-                    "timestamp": utc_now_iso(),
-                }
-            },
-        )
-        ok, errors = self.schema.validate("error.schema.json", env)
-        if not ok:
-            raise ValueError(f"Error schema errors: {errors}")
-        return env
+
+def match_capability(
+    agents: List[ICNPAgent],
+    *,
+    required_action: str,
+    required_scope: str,
+) -> Tuple[List[ICNPAgent], List[ICNPAgent]]:
+    matches = [
+        ag
+        for ag in agents
+        if ag.capability.action == required_action and ag.capability.scope == required_scope
+    ]
+    non_matches = [ag for ag in agents if ag not in matches]
+    return matches, non_matches
 
 
 def main() -> int:
@@ -259,247 +180,174 @@ def main() -> int:
     base = Path(__file__).resolve().parent
     schema = SchemaRegistry(str((base.parent / "schemas").resolve()))
 
-    # Shared demo secret for HMAC signing (all agents share in this demo).
     secret = b"icnp-demo-secret"
-
     ollama = None if args.dry_run else OllamaClient(args.ollama_url)
 
     def choose_model(override: Optional[str]) -> str:
         return override or args.model or "llama3.1:8b"
 
-    orchestrator = Actor(id="agent-orchestrator", role="orchestrator", display_name="Orchestrator")
+    orchestrator = Sender(id="agent-orchestrator", type="autonomous-agent", trust_level="trusted")
 
-    agent_profiles = [
-        ("agent-planner", "Planner", "compose_outline", "You are a planning agent. Produce clear bullet-point outlines."),
-        ("agent-writer", "Writer", "write_draft", "You are a technical writer. Write clear, accurate explanations for engineers."),
-        ("agent-reviewer", "Reviewer", "review_text", "You are a careful reviewer. Identify issues and suggest improvements."),
-        ("agent-summariser", "Summariser", "summarise_text", "You are a summariser. Produce concise answers."),
-        ("agent-classifier", "Classifier", "classify_tone", "You classify tone and sentiment with short labels."),
-        ("agent-analyst", "Analyst", "analyze_data", "You analyze data and return key patterns."),
-        ("agent-ranker", "Ranker", "rank_options", "You rank options by criteria and explain the ranking."),
-        ("agent-translator", "Translator", "translate_text", "You translate text between languages."),
-        ("agent-validator", "Validator", "validate_output", "You validate outputs against requirements."),
+    profiles = [
+        AgentProfile("agent-planner", "Planner", "suggest", "documentation", "You are a planning agent."),
+        AgentProfile("agent-writer", "Writer", "suggest", "documentation", "You are a technical writer."),
+        AgentProfile("agent-reviewer", "Reviewer", "analyze", "documentation", "You are a careful reviewer."),
+        AgentProfile("agent-summariser", "Summariser", "analyze", "documentation", "You summarise content."),
+        AgentProfile("agent-classifier", "Classifier", "analyze", "text", "You classify tone and sentiment."),
+        AgentProfile("agent-analyst", "Analyst", "analyze", "data", "You analyze data and extract patterns."),
+        AgentProfile("agent-ranker", "Ranker", "decide", "options", "You rank options by criteria."),
+        AgentProfile("agent-translator", "Translator", "transform", "text", "You translate text between languages."),
+        AgentProfile("agent-validator", "Validator", "audit", "output", "You validate outputs against requirements."),
     ]
 
     agents = [
         ICNPAgent(
-            actor=Actor(id=aid, role="agent", display_name=name),
+            responder=Responder(id=profile.agent_id, version="1.0"),
+            action=profile.action,
+            scope=profile.scope,
             model=choose_model(None),
-            system_prompt=prompt,
+            system_prompt=profile.system_prompt,
             secret=secret,
             dry_run=args.dry_run,
             schema=schema,
             ollama=ollama,
         )
-        for aid, name, _action, prompt in agent_profiles
+        for profile in profiles
     ]
 
-    action_by_agent = {aid: action for aid, _name, action, _prompt in agent_profiles}
+    intent = {
+        "action": "translate-text",
+        "goals": [
+            {"id": "translate", "priority": "high", "description": "Translate the text to Spanish."}
+        ],
+        "non_goals": [{"id": "no-summarise", "reason": "Preserve full meaning", "severity": "hard"}],
+        "constraints": {"time_window": {"start": "09:00", "end": "18:00", "timezone": "UTC"}},
+        "risk_tolerance": "low",
+        "human_approval_required": False,
+        "context": {"environment": "development", "urgency": "soon"},
+    }
 
-    session_id = new_uuid()
-
-    requested_action = "translate_text"
-    intent_goal = "Translate the provided text from English to Spanish."
-    source_text = (
-        "The verification team will review the model tomorrow. "
-        "Please prepare a short summary of the key assumptions."
-    )
-
-    # ---------------- Phase 1: Intent ----------------
-    intent = make_envelope(
-        icnp_version="1.0.0",
-        msg_type="intent_declaration",
-        phase="intent",
-        sender=orchestrator,
-        session_id=session_id,
-        payload={
-            "intent": {
-                "goal": intent_goal,
-                "requested_actions": [
-                    {"action": requested_action, "description": "Translate the provided text to Spanish."}
-                ],
-                "expected_outputs": ["translation"],
-            },
-            "constraints": {
-                "risk_tolerance": "low",
-                "human_approval_required": False,
-                "external_side_effects_allowed": False,
-                "audit_level": "standard",
-                "data_policy": {"allowed_data_classes": ["public"], "retention_days": 0},
-            },
-        },
-    )
-    ok, errors = schema.validate("intent.schema.json", intent)
+    intent_msg = make_intent_message(intent=intent, sender=orchestrator.to_dict())
+    ok, errors = schema.validate("intent.schema.json", intent_msg)
     if not ok:
         raise ValueError(f"Intent schema errors: {errors}")
-    jprint("SEND -> INTENT_DECLARATION (orchestrator -> broadcast)", intent)
+    jprint("SEND -> INTENT_DECLARATION (orchestrator -> broadcast)", intent_msg)
 
-    # ---------------- Phase 2: Capability disclosures ----------------
     cap_msgs: List[Dict[str, Any]] = []
+    capability_records: List[Dict[str, Any]] = []
     for ag in agents:
-        cap = ag.capability_message(session_id, intent["message_id"], orchestrator, action_by_agent[ag.actor.id])
-        cap_msgs.append(cap)
-        jprint(f"RECV <- CAPABILITY_DISCLOSURE ({ag.actor.id} -> orchestrator)", cap)
+        cap_msg = ag.capability_message(intent_msg["message_id"])
+        cap_msgs.append(cap_msg)
+        capability_records.extend(cap_msg["capabilities"])
+        jprint(f"RECV <- CAPABILITY_DISCLOSURE ({ag.responder.id} -> orchestrator)", cap_msg)
 
-    capabilities_payload = {"capabilities": []}
-    for cap_msg in cap_msgs:
-        capabilities_payload["capabilities"].extend(cap_msg["payload"]["capabilities"])
-
-    matching_agents = [ag for ag in agents if ag.capability.action == requested_action]
-    if len(matching_agents) != 1:
+    required_action = "transform"
+    required_scope = "text"
+    matches, _ = match_capability(agents, required_action=required_action, required_scope=required_scope)
+    if len(matches) != 1:
         raise ValueError(
-            f"Expected exactly one agent with capability '{requested_action}', "
-            f"found {len(matching_agents)}."
+            f"Expected exactly one agent matching action '{required_action}' and scope '{required_scope}', "
+            f"found {len(matches)}."
         )
-    selected_agent = matching_agents[0]
+    selected_agent = matches[0]
 
     print("\n" + "#" * 90)
     print("CAPABILITY MATCH")
     print("#" * 90)
-    print(f"Selected agent: {selected_agent.actor.id} ({selected_agent.actor.display_name})")
+    print(f"Selected agent: {selected_agent.responder.id}")
 
-    # ---------------- Phase 3: Contract proposal + acceptance ----------------
     contract_id = new_uuid()
-    issued_at = utc_now_iso()
-
     agreed_actions = [
         {
-            "action_id": new_uuid(),
             "capability_id": selected_agent.capability.capability_id,
-            "executor_id": selected_agent.actor.id,
-            "action": selected_agent.capability.action,
-            "scope": "text",
+            "approved": True,
             "max_invocations": 1,
         }
     ]
-
-    contract_obj = {
-        "contract_id": contract_id,
-        "session_id": session_id,
-        "issued_at": issued_at,
-        "parties": [orchestrator.to_dict(), selected_agent.actor.to_dict()],
-        "agreed_actions": agreed_actions,
-        "forbidden_actions": [{"action": "network_access", "reason": "No external side-effects allowed"}],
-        "constraints": {"risk_tolerance": "low"},
-        "enforcement": {
-            "mode": "strict",
-            "violation_action": "abort",
-            "audit_level": "standard",
-            "logging_required": True,
-            "rollback_required": False,
-        },
-        "approvals": [],
-        "signatures": [],
+    execution_constraints = {
+        "audit_level": "standard",
+        "logging_required": True,
+        "rollback_required": False,
+        "max_duration_seconds": 300,
     }
+    forbidden_actions = [
+        {"action": "execute", "scope": "network", "reason": "No external side-effects allowed"},
+        {"action": "delete", "scope": "any", "reason": "Safety"},
+    ]
 
-    contract_proposal = make_envelope(
-        icnp_version="1.0.0",
-        msg_type="contract_proposal",
-        phase="contract",
-        sender=orchestrator,
-        recipient=selected_agent.actor,
-        session_id=session_id,
-        payload={"contract": contract_obj},
+    contract_obj = make_contract_message(
+        contract_id=contract_id,
+        agreed_actions=agreed_actions,
+        execution_constraints=execution_constraints,
+        forbidden_actions=forbidden_actions,
+        signatures={"initiator": "demo-signature", "responder": "demo-signature"},
     )
-    ok, errors = schema.validate("contract.schema.json", contract_proposal)
+    ok, errors = schema.validate("contract.schema.json", contract_obj)
     if not ok:
-        raise ValueError(f"Contract proposal schema errors: {errors}")
-    jprint("SEND -> CONTRACT_PROPOSAL (orchestrator -> translator)", contract_proposal)
+        raise ValueError(f"Contract schema errors: {errors}")
+    jprint("SEND -> CONTRACT_NEGOTIATION (orchestrator -> translator)", contract_obj)
 
-    acc = selected_agent.accept_contract(session_id, contract_proposal["message_id"], orchestrator, contract_obj)
-    jprint(f"RECV <- CONTRACT_ACCEPTANCE ({selected_agent.actor.id} -> orchestrator)", acc)
-
-    # ---------------- Phase 4: Token issuance ----------------
-    intent_payload = intent["payload"]
-    binding = make_binding_hashes(intent_payload, contract_obj, capabilities_payload)
+    agreed_capabilities = [
+        cap for cap in capability_records if cap["id"] == selected_agent.capability.capability_id
+    ]
+    binding = make_binding_hashes(intent_msg["intent"], contract_obj, agreed_capabilities)
 
     not_before = datetime.now(timezone.utc).replace(microsecond=0)
     not_after = not_before + timedelta(minutes=10)
-
-    token_body = {
-        "token_id": new_uuid(),
-        "session_id": session_id,
-        "contract_id": contract_id,
-        "issuer": orchestrator.to_dict(),
-        "audience": [selected_agent.actor.to_dict()],
-        "issued_at": utc_now_iso(),
+    validity = {
         "not_before": not_before.isoformat().replace("+00:00", "Z"),
         "not_after": not_after.isoformat().replace("+00:00", "Z"),
-        "limits": {"max_invocations_per_actor": 1, "max_invocations_total": 1},
-        "binding": binding,
-        "revocation": {"method": "out_of_band"},
+        "max_invocations": 1,
     }
-    signature = sign_token_hmac(token_body, secret=secret, signed_by=orchestrator.id)
-    token = dict(token_body)
-    token["signature"] = signature
+    enforcement = {"mode": "strict", "violation_action": "abort_and_rollback", "alert_on_violation": True}
 
-    token_msg = make_envelope(
-        icnp_version="1.0.0",
-        msg_type="execution_token",
-        phase="token",
-        sender=orchestrator,
-        recipient=selected_agent.actor,
-        session_id=session_id,
-        payload={"token": token},
+    token_id = new_uuid()
+    token_body = {
+        "token_id": token_id,
+        "contract_id": contract_id,
+        "validity": validity,
+        "binding": binding,
+        "enforcement": enforcement,
+    }
+    token_signature = sign_token_hmac(token_body, secret=secret)
+    token = make_demo_token(token_body, secret=secret)
+    token_msg = make_execution_token_message(
+        token_id=token_id,
+        contract_id=contract_id,
+        token=token,
+        validity=validity,
+        binding=binding,
+        enforcement=enforcement,
     )
     ok, errors = schema.validate("execution-token.schema.json", token_msg)
     if not ok:
         raise ValueError(f"Token schema errors: {errors}")
-    jprint("SEND -> EXECUTION_TOKEN (orchestrator -> translator)", token_msg)
+    jprint("SEND -> EXECUTION_TOKEN (issuer -> translator)", token_msg)
 
-    # ---------------- Governed execution ----------------
-    intent_goal_note = f"Goal: {intent_goal}\n\n"
+    token_meta = {"body": token_body, "signature": token_signature}
+
+    source_text = (
+        "The verification team will review the model tomorrow. "
+        "Please prepare a short summary of the key assumptions."
+    )
     prompt = (
-        intent_goal_note
-        + "Translate the following text to Spanish. Keep the meaning and tone.\n\nTEXT:\n"
+        "Translate the following text to Spanish. Keep the meaning and tone.\n\nTEXT:\n"
         + source_text
     )
-    params = {
-        "prompt": prompt,
-        "source_text": source_text,
-        "target_language": "Spanish",
-    }
+    params = {"prompt": prompt, "source_text": source_text, "target_language": "Spanish"}
 
-    req = make_envelope(
-        icnp_version="1.0.0",
-        msg_type="execution_request",
-        phase="execution",
-        sender=orchestrator,
-        recipient=selected_agent.actor,
-        session_id=session_id,
-        payload={
-            "request": {
-                "invocation_id": new_uuid(),
-                "token_id": token["token_id"],
-                "contract_id": contract_id,
-                "action": requested_action,
-                "executor": selected_agent.actor.to_dict(),
-                "requested_at": utc_now_iso(),
-                "nonce": rand_nonce(),
-                "parameters": params,
-            }
-        },
+    result = selected_agent.verify_and_execute(
+        parameters=params,
+        token_meta=token_meta,
+        contract_obj=contract_obj,
     )
-    ok, errors = schema.validate("execution.schema.json", req)
-    if not ok:
-        raise ValueError(f"Execution request schema errors: {errors}")
-    jprint(f"SEND -> EXECUTION_REQUEST ({orchestrator.id} -> {selected_agent.actor.id})", req)
-
-    responses = selected_agent.verify_and_execute(req, token_msg, contract_obj)
-    for resp in responses:
-        if resp["type"] == "execution_result":
-            jprint(f"RECV <- EXECUTION_RESULT ({selected_agent.actor.id} -> orchestrator)", resp)
-        elif resp["type"] == "audit_event":
-            jprint(f"AUDIT <- AUDIT_EVENT ({selected_agent.actor.id})", resp)
-        else:
-            jprint(f"RECV <- {resp['type']} ({selected_agent.actor.id} -> orchestrator)", resp)
+    jprint(f"EXECUTION_RESULT ({selected_agent.responder.id})", result)
 
     print("\n" + "#" * 90)
     print("FINAL OUTPUT")
     print("#" * 90)
-    for resp in responses:
-        if resp["type"] == "execution_result":
-            print(resp["payload"]["result"]["output"].get("text", ""))
+    if result.get("status") == "success":
+        print(result["output"].get("text", ""))
 
     return 0
 

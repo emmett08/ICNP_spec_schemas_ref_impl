@@ -1,0 +1,220 @@
+{
+  "$schema": "../schemas/intent.schema.json",
+  "description": "Example: ICNP negotiation between workflow agents",
+
+  "scenario": {
+    "name": "Code Review Workflow",
+    "description": "Security agent (Hestia) requests code analysis from Analysis agent (Apollo)",
+    "participants": [
+      {
+        "agent": "hestia",
+        "role": "requester",
+        "purpose": "Security review orchestration"
+      },
+      {
+        "agent": "apollo",
+        "role": "provider",
+        "purpose": "Code quality analysis"
+      }
+    ]
+  },
+
+  "phase_1_intent_declaration": {
+    "icnp_version": "1.0",
+    "phase": "intent_declaration",
+    "message_id": "msg-001-intent",
+    "timestamp": "2024-01-15T10:30:00Z",
+    "sender": {
+      "agent_id": "hestia",
+      "workflow_id": "wf-security-review-001",
+      "step_id": "step-3-request-analysis"
+    },
+    "intent": {
+      "action": "analyze-code-quality",
+      "goals": [
+        {
+          "id": "identify-code-smells",
+          "priority": "high",
+          "output_format": "structured-json"
+        },
+        {
+          "id": "complexity-metrics",
+          "priority": "medium",
+          "metrics": ["cyclomatic", "cognitive", "lines-per-function"]
+        },
+        {
+          "id": "dependency-analysis",
+          "priority": "low"
+        }
+      ],
+      "non_goals": [
+        { "id": "no-auto-fix", "reason": "Fixes require human review" },
+        { "id": "no-external-calls", "reason": "Air-gapped environment" }
+      ],
+      "constraints": {
+        "max_duration_seconds": 120,
+        "max_memory_mb": 512,
+        "output_format": "JSON",
+        "language_support": ["typescript", "python", "go"]
+      },
+      "context": {
+        "code_path": "/workspace/src",
+        "file_count": 47,
+        "total_lines": 12500
+      }
+    }
+  },
+
+  "phase_2_capability_disclosure": {
+    "icnp_version": "1.0",
+    "phase": "capability_disclosure",
+    "message_id": "msg-002-capabilities",
+    "in_reply_to": "msg-001-intent",
+    "timestamp": "2024-01-15T10:30:01Z",
+    "sender": {
+      "agent_id": "apollo",
+      "version": "2.1.0"
+    },
+    "capabilities": [
+      {
+        "id": "cap-analyze-code",
+        "action": "analyze",
+        "scope": "source-code",
+        "languages": ["typescript", "javascript", "python", "go", "rust"],
+        "confidence": 0.95
+      },
+      {
+        "id": "cap-complexity-metrics",
+        "action": "compute",
+        "scope": "metrics",
+        "supported_metrics": [
+          "cyclomatic",
+          "cognitive",
+          "halstead",
+          "maintainability-index"
+        ],
+        "confidence": 0.98
+      },
+      {
+        "id": "cap-dependency-graph",
+        "action": "analyze",
+        "scope": "dependencies",
+        "confidence": 0.92
+      },
+      {
+        "id": "cap-suggest-fixes",
+        "action": "suggest",
+        "scope": "refactoring",
+        "confidence": 0.78,
+        "requires_confirmation": true
+      }
+    ],
+    "limitations": [
+      {
+        "action": "write",
+        "scope": "source-code",
+        "reason": "Read-only analyzer"
+      },
+      {
+        "action": "execute",
+        "scope": "code",
+        "reason": "Static analysis only"
+      },
+      {
+        "action": "network",
+        "scope": "external",
+        "reason": "No external dependencies"
+      }
+    ],
+    "resource_requirements": {
+      "estimated_duration_seconds": 45,
+      "memory_mb": 256,
+      "cpu_cores": 2
+    }
+  },
+
+  "phase_3_contract_negotiation": {
+    "icnp_version": "1.0",
+    "phase": "contract_negotiation",
+    "contract_id": "contract-wf001-step3",
+    "message_id": "msg-003-contract",
+    "timestamp": "2024-01-15T10:30:02Z",
+    "parties": {
+      "initiator": { "agent_id": "hestia", "signature": "sig-hestia-abc123" },
+      "responder": { "agent_id": "apollo", "signature": "sig-apollo-def456" }
+    },
+    "agreed_actions": [
+      { "capability_id": "cap-analyze-code", "approved": true },
+      { "capability_id": "cap-complexity-metrics", "approved": true },
+      { "capability_id": "cap-dependency-graph", "approved": true },
+      {
+        "capability_id": "cap-suggest-fixes",
+        "approved": false,
+        "reason": "non-goal: no-auto-fix"
+      }
+    ],
+    "forbidden_actions": [
+      { "action": "write", "scope": "any", "enforced": true },
+      { "action": "network", "scope": "external", "enforced": true },
+      { "action": "execute", "scope": "code", "enforced": true }
+    ],
+    "execution_constraints": {
+      "max_duration_seconds": 120,
+      "max_memory_mb": 512,
+      "audit_level": "detailed",
+      "checkpoint_interval_seconds": 30
+    },
+    "data_handling": {
+      "input_paths": ["/workspace/src"],
+      "output_path": "/workspace/analysis-results",
+      "cleanup_on_complete": false
+    }
+  },
+
+  "phase_4_execution_token": {
+    "icnp_version": "1.0",
+    "phase": "execution_token",
+    "token_id": "token-wf001-step3-exec",
+    "contract_id": "contract-wf001-step3",
+    "timestamp": "2024-01-15T10:30:03Z",
+    "token": "eyJhbGciOiJFZERTQSIsInR5cCI6IklDTlAifQ...",
+    "validity": {
+      "not_before": "2024-01-15T10:30:03Z",
+      "not_after": "2024-01-15T10:32:03Z",
+      "max_invocations": 1
+    },
+    "binding": {
+      "intent_hash": "sha256:a1b2c3d4e5f6...",
+      "contract_hash": "sha256:f6e5d4c3b2a1...",
+      "workflow_context": {
+        "workflow_id": "wf-security-review-001",
+        "step_id": "step-3-request-analysis",
+        "previous_step": "step-2-code-checkout"
+      }
+    },
+    "enforcement": {
+      "mode": "strict",
+      "violation_action": "abort_and_report",
+      "alert_on_violation": true,
+      "rollback_on_failure": true
+    }
+  },
+
+  "execution_result": {
+    "status": "completed",
+    "duration_seconds": 38,
+    "memory_used_mb": 187,
+    "outputs": {
+      "code_smells": "/workspace/analysis-results/code-smells.json",
+      "complexity_metrics": "/workspace/analysis-results/complexity.json",
+      "dependency_graph": "/workspace/analysis-results/dependencies.json"
+    },
+    "audit_log": "/workspace/analysis-results/audit-trail.json",
+    "violations": [],
+    "next_step": {
+      "step_id": "step-4-security-scan",
+      "agent": "hestia",
+      "inputs_from": ["code_smells", "complexity_metrics"]
+    }
+  }
+}

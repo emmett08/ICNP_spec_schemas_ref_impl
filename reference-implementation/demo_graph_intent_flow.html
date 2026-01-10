@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ICNP Demo: Intent-Only Graph Flow</title>
+    <title>ICNP Demo: Intent and Capability Flow</title>
     <style>
       :root {
         --bg-1: #f7f1e6;
@@ -238,22 +238,24 @@
   <body>
     <div class="app">
       <header>
-        <h1>Intent-Only Graph Flow</h1>
+        <h1>Intent and Capability Flow</h1>
         <p>
-          Animated ICNP demo that shows high-level message passing only. No payloads are shown; the
-          graph highlights intent, capability, contract, token, and execution at a glance.
+          Animated Intent-and-Capability Negotiation Protocol (ICNP) demo that shows high-level
+          message passing only. No payloads are shown; the graph highlights intent declaration,
+          capability disclosure, contract negotiation, token issuance, and governed execution at a
+          glance.
         </p>
         <div class="status">
           <span class="label">Phase</span>
-          <span class="phase" id="phase-title">Intent broadcast</span>
+          <span class="phase" id="phase-title">Intent declaration</span>
           <span id="phase-desc">Orchestrator shares the high-level goal with all agents.</span>
         </div>
       </header>
 
       <div class="graph-card">
         <svg id="graph" viewBox="0 0 1200 720" role="img" aria-labelledby="graph-title graph-desc">
-          <title id="graph-title">ICNP Intent Flow Graph</title>
-          <desc id="graph-desc">Animated intent flow between orchestrator and agents.</desc>
+        <title id="graph-title">ICNP Intent and Capability Flow Graph</title>
+        <desc id="graph-desc">Animated intent and capability flow between orchestrator and agents.</desc>
         </svg>
       </div>
 
@@ -302,7 +304,7 @@
 
         const phases = [
           {
-            title: "Intent broadcast",
+            title: "Intent declaration",
             desc: "Orchestrator shares the high-level goal with all agents.",
             edges: nodes
               .filter((n) => n.id !== "orchestrator")
@@ -322,17 +324,24 @@
             edges: [{ from: "orchestrator", to: "translator", label: "Select", type: "select", curve: -30 }]
           },
           {
-            title: "Contract + token",
+            title: "Contract negotiation",
             desc: "A focused agreement is negotiated with the selected agent.",
             highlight: ["translator"],
             edges: [
               { from: "orchestrator", to: "translator", label: "Contract", type: "contract", curve: -40 },
-              { from: "translator", to: "orchestrator", label: "Accept", type: "contract", curve: 0 },
-              { from: "orchestrator", to: "translator", label: "Token", type: "token", curve: 40 }
+              { from: "translator", to: "orchestrator", label: "Accept", type: "contract", curve: 0 }
             ]
           },
           {
-            title: "Execution",
+            title: "Execution token",
+            desc: "The orchestrator issues a token bound to the contract.",
+            highlight: ["translator"],
+            edges: [
+              { from: "orchestrator", to: "translator", label: "Token", type: "token", curve: 30 }
+            ]
+          },
+          {
+            title: "Governed execution",
             desc: "The orchestrator sends the request and receives the result.",
             highlight: ["translator"],
             edges: [

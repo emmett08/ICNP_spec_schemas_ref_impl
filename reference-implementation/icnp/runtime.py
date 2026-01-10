@@ -1,19 +1,16 @@
-\
 from __future__ import annotations
 
 import base64
-import dataclasses
 import hashlib
 import hmac
 import json
 import secrets
-import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from jsonschema import Draft202012Validator
+from jsonschema import Draft7Validator
 
 
 def utc_now_iso() -> str:
@@ -39,43 +36,47 @@ def hmac_sha256_b64(secret: bytes, message: str) -> str:
 
 
 @dataclass(frozen=True)
-class Actor:
+class Sender:
     id: str
-    role: str
-    display_name: Optional[str] = None
+    type: str
+    trust_level: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        d = {"id": self.id, "role": self.role}
-        if self.display_name:
-            d["display_name"] = self.display_name
-        return d
+        data = {"id": self.id, "type": self.type}
+        if self.trust_level:
+            data["trust_level"] = self.trust_level
+        return data
+
+
+@dataclass(frozen=True)
+class Responder:
+    id: str
+    version: Optional[str] = None
+    certifications: Optional[List[str]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        data = {"id": self.id}
+        if self.version:
+            data["version"] = self.version
+        if self.certifications:
+            data["certifications"] = self.certifications
+        return data
 
 
 class SchemaRegistry:
     """Loads and validates messages against the provided JSON schemas."""
+
     def __init__(self, schemas_path: str):
         from pathlib import Path
 
         self.schemas_path = Path(schemas_path)
         self._schemas: Dict[str, Dict[str, Any]] = {}
-        self._validators: Dict[str, Draft202012Validator] = {}
+        self._validators: Dict[str, Draft7Validator] = {}
 
-        # Load all schemas first
         for p in self.schemas_path.glob("*.schema.json"):
-            self._schemas[p.name] = json.loads(p.read_text(encoding="utf-8"))
-
-        from referencing import Registry, Resource
-        from referencing.jsonschema import DRAFT202012
-
-        registry = Registry()
-        for name, schema in self._schemas.items():
-            resource = Resource.from_contents(schema, default_specification=DRAFT202012)
-            if "$id" in schema:
-                registry = registry.with_resource(schema["$id"], resource)
-            registry = registry.with_resource(name, resource)
-
-        for name, schema in self._schemas.items():
-            self._validators[name] = Draft202012Validator(schema, registry=registry)
+            schema = json.loads(p.read_text(encoding="utf-8"))
+            self._schemas[p.name] = schema
+            self._validators[p.name] = Draft7Validator(schema)
 
     def validate(self, schema_filename: str, message: Dict[str, Any]) -> Tuple[bool, List[str]]:
         v = self._validators[schema_filename]
@@ -83,67 +84,120 @@ class SchemaRegistry:
         return (len(errors) == 0), errors
 
 
-def make_envelope(
+def make_intent_message(
     *,
-    icnp_version: str,
-    msg_type: str,
-    phase: str,
-    sender: Actor,
-    session_id: str,
-    payload: Dict[str, Any],
-    recipient: Optional[Actor] = None,
-    in_reply_to: Optional[str] = None,
-    trace: Optional[Dict[str, Any]] = None,
-    extensions: Optional[Dict[str, Any]] = None,
+    intent: Dict[str, Any],
+    sender: Dict[str, Any],
+    icnp_version: str = "1.0",
 ) -> Dict[str, Any]:
-    env: Dict[str, Any] = {
+    return {
         "icnp_version": icnp_version,
-        "type": msg_type,
-        "phase": phase,
+        "phase": "intent_declaration",
         "message_id": new_uuid(),
-        "session_id": session_id,
         "timestamp": utc_now_iso(),
-        "sender": sender.to_dict(),
-        "payload": payload,
+        "intent": intent,
+        "sender": sender,
     }
-    if recipient is not None:
-        env["recipient"] = recipient.to_dict()
-    if in_reply_to is not None:
-        env["in_reply_to"] = in_reply_to
-    if trace is not None:
-        env["trace"] = trace
-    if extensions is not None:
-        env["extensions"] = extensions
-    return env
 
 
-def sign_token_hmac(token_body: Dict[str, Any], *, secret: bytes, signed_by: str, key_id: str = "demo-key") -> Dict[str, Any]:
-    """Returns a Signature object and mutates no inputs."""
-    msg = canonical_json(token_body)
+def make_capability_message(
+    *,
+    in_reply_to: str,
+    capabilities: List[Dict[str, Any]],
+    responder: Dict[str, Any],
+    limitations: Optional[List[Dict[str, Any]]] = None,
+    resource_requirements: Optional[Dict[str, Any]] = None,
+    icnp_version: str = "1.0",
+) -> Dict[str, Any]:
+    msg: Dict[str, Any] = {
+        "icnp_version": icnp_version,
+        "phase": "capability_disclosure",
+        "in_reply_to": in_reply_to,
+        "capabilities": capabilities,
+        "responder": responder,
+    }
+    if limitations:
+        msg["limitations"] = limitations
+    if resource_requirements:
+        msg["resource_requirements"] = resource_requirements
+    return msg
+
+
+def make_contract_message(
+    *,
+    contract_id: str,
+    agreed_actions: List[Dict[str, Any]],
+    execution_constraints: Dict[str, Any],
+    forbidden_actions: Optional[List[Dict[str, Any]]] = None,
+    approval_chain: Optional[List[Dict[str, Any]]] = None,
+    signatures: Optional[Dict[str, Any]] = None,
+    icnp_version: str = "1.0",
+) -> Dict[str, Any]:
+    msg: Dict[str, Any] = {
+        "icnp_version": icnp_version,
+        "phase": "contract_negotiation",
+        "contract_id": contract_id,
+        "agreed_actions": agreed_actions,
+        "execution_constraints": execution_constraints,
+    }
+    if forbidden_actions:
+        msg["forbidden_actions"] = forbidden_actions
+    if approval_chain:
+        msg["approval_chain"] = approval_chain
+    if signatures:
+        msg["signatures"] = signatures
+    return msg
+
+
+def make_execution_token_message(
+    *,
+    token_id: str,
+    contract_id: str,
+    token: str,
+    validity: Dict[str, Any],
+    binding: Dict[str, Any],
+    enforcement: Dict[str, Any],
+    icnp_version: str = "1.0",
+) -> Dict[str, Any]:
     return {
-        "alg": "hmac-sha256",
-        "value": hmac_sha256_b64(secret, msg),
-        "key_id": key_id,
-        "signed_by": signed_by,
-        "signed_at": utc_now_iso(),
+        "icnp_version": icnp_version,
+        "phase": "execution_token",
+        "token_id": token_id,
+        "contract_id": contract_id,
+        "token": token,
+        "validity": validity,
+        "binding": binding,
+        "enforcement": enforcement,
     }
 
 
-def verify_token_hmac(token_body: Dict[str, Any], signature: Dict[str, Any], *, secret: bytes) -> bool:
-    if signature.get("alg") != "hmac-sha256":
-        return False
+def sign_token_hmac(token_body: Dict[str, Any], *, secret: bytes) -> str:
+    return hmac_sha256_b64(secret, canonical_json(token_body))
+
+
+def verify_token_hmac(token_body: Dict[str, Any], signature: str, *, secret: bytes) -> bool:
     expected = hmac_sha256_b64(secret, canonical_json(token_body))
-    return hmac.compare_digest(signature.get("value", ""), expected)
+    return hmac.compare_digest(signature, expected)
 
 
-def make_binding_hashes(intent_payload: Dict[str, Any], contract_obj: Dict[str, Any], capabilities_payload: Dict[str, Any]) -> Dict[str, Any]:
-    def wrap(hex_value: str) -> Dict[str, Any]:
-        return {"alg": "sha256", "value": hex_value}
+def make_demo_token(token_body: Dict[str, Any], *, secret: bytes) -> str:
+    payload = base64.urlsafe_b64encode(canonical_json(token_body).encode("utf-8")).decode("ascii").rstrip("=")
+    signature = sign_token_hmac(token_body, secret=secret)
+    return f"demo.{payload}.{signature}"
+
+
+def make_binding_hashes(
+    intent: Dict[str, Any],
+    contract: Dict[str, Any],
+    capabilities: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    def wrap(obj: Any) -> str:
+        return f"sha256:{sha256_hex(obj)}"
 
     return {
-        "intent_hash": wrap(sha256_hex(intent_payload)),
-        "contract_hash": wrap(sha256_hex(contract_obj)),
-        "capabilities_hash": wrap(sha256_hex(capabilities_payload)),
+        "intent_hash": wrap(intent),
+        "contract_hash": wrap(contract),
+        "capability_hashes": [wrap(cap) for cap in capabilities],
     }
 
 
