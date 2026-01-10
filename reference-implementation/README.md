@@ -1,20 +1,22 @@
-# ICNP Reference Implementation (5 Ollama agents)
+# ICNP Reference Implementation (Ollama agents)
 
-This is a small, runnable reference implementation demonstrating **visible ICNP message exchange**
+This is a runnable reference implementation of the **Intent-and-Capability Negotiation Protocol (ICNP)**,
+demonstrating **visible ICNP message exchange**
 between **five Ollama-backed agents**:
 
-- 1× Orchestrator
-- 4× Specialist agents (Planner, Writer, Reviewer, Summariser)
+- 1x Orchestrator
+- 4x Specialist agents (Planner, Writer, Reviewer, Summariser)
 
-It performs:
+It demonstrates:
 
-1. Intent declaration
-2. Capability disclosure
-3. Contract proposal and acceptance
-4. Execution token issuance
-5. Governed execution requests/results (+ audit events)
+1. Intent declaration (`intent_declaration`)
+2. Capability disclosure (`capability_disclosure`)
+3. Contract negotiation (`contract_negotiation`)
+4. Execution token issuance (`execution_token`)
+5. Governed execution (application-level, outside the schema)
 
-Every ICNP message is printed to the console as formatted JSON.
+Every ICNP message (phases 1-4) is printed to the console as formatted JSON.
+The demo aligns with the canonical docs in `../icnp/` and schemas in `../schemas/`.
 
 ---
 
@@ -29,31 +31,19 @@ sequenceDiagram
     participant R as Reviewer
     participant S as Summariser
 
-    O->>O: Intent declaration (broadcast)
-    P-->>O: Capability disclosure (compose_outline)
-    W-->>O: Capability disclosure (write_draft)
-    R-->>O: Capability disclosure (review_text)
-    S-->>O: Capability disclosure (summarise_text)
+    O->>O: Intent declaration (intent_declaration)
+    P-->>O: Capability disclosure (suggest)
+    W-->>O: Capability disclosure (transform)
+    R-->>O: Capability disclosure (analyze)
+    S-->>O: Capability disclosure (transform)
 
-    O->>O: Contract proposal (broadcast)
-    P-->>O: Contract acceptance
-    W-->>O: Contract acceptance
-    R-->>O: Contract acceptance
-    S-->>O: Contract acceptance
+    O->>O: Contract negotiation (contract_negotiation)
+    O->>O: Execution token (execution_token)
 
-    O->>O: Execution token issuance (broadcast)
-
-    O->>P: Execution request (compose_outline)
-    P-->>O: Execution result + audit event
-
-    O->>W: Execution request (write_draft)
-    W-->>O: Execution result + audit event
-
-    O->>R: Execution request (review_text)
-    R-->>O: Execution result + audit event
-
-    O->>S: Execution request (summarise_text)
-    S-->>O: Execution result + audit event
+    O->>P: Governed execution (suggest)
+    O->>W: Governed execution (transform)
+    O->>R: Governed execution (analyze)
+    O->>S: Governed execution (transform)
 ```
 
 ---
@@ -84,10 +74,10 @@ sequenceDiagram
      - `mistral:7b`: ~4.4GB
      - `llama4:scout`: ~67GB
      - `llama4:maverick`: ~245GB
-    - Other quantizations and sizes:
-      - https://ollama.com/library/llama3.1/tags
-      - https://ollama.com/library/llama4/tags
-      - https://ollama.com/library/mistral/tags
+   - Other quantizations and sizes:
+     - https://ollama.com/library/llama3.1/tags
+     - https://ollama.com/library/llama4/tags
+     - https://ollama.com/library/mistral/tags
 
 3. Python 3.10+ recommended
 
@@ -115,7 +105,6 @@ Optional:
 - Use different models per agent:
   ```bash
   python demo_ollama_5_agents.py \
-    --model-orchestrator llama3.1:8b \
     --model-planner llama3.1:8b \
     --model-writer mistral:7b \
     --model-reviewer llama3.1:8b \
@@ -153,33 +142,30 @@ sequenceDiagram
     participant T as Translator
     participant V as Validator
 
-    O->>O: Intent declaration (broadcast)
-    P-->>O: Capability disclosure (compose_outline)
-    W-->>O: Capability disclosure (write_draft)
-    R-->>O: Capability disclosure (review_text)
-    S-->>O: Capability disclosure (summarise_text)
-    C-->>O: Capability disclosure (classify_tone)
-    A-->>O: Capability disclosure (analyze_data)
-    K-->>O: Capability disclosure (rank_options)
-    T-->>O: Capability disclosure (translate_text)
-    V-->>O: Capability disclosure (validate_output)
+    O->>O: Intent declaration (intent_declaration)
+    P-->>O: Capability disclosure (suggest)
+    W-->>O: Capability disclosure (suggest)
+    R-->>O: Capability disclosure (analyze)
+    S-->>O: Capability disclosure (analyze)
+    C-->>O: Capability disclosure (analyze)
+    A-->>O: Capability disclosure (analyze)
+    K-->>O: Capability disclosure (decide)
+    T-->>O: Capability disclosure (transform)
+    V-->>O: Capability disclosure (audit)
 
-    O->>O: Capability match (translate_text -> Translator)
+    O->>O: Capability match (transform + text -> Translator)
 
-    O->>T: Contract proposal
-    T-->>O: Contract acceptance
-
-    O->>T: Execution token issuance
-    O->>T: Execution request (translate_text)
-    T-->>O: Execution result + audit event
+    O->>T: Contract negotiation (contract_negotiation)
+    O->>T: Execution token (execution_token)
+    O->>T: Governed execution (transform)
 ```
 
 ---
 
 ## Additional demo: animated intent graph (HTML)
 
-This demo shows a high-level, intent-only message flow with animated edges.
-It does not display payloads.
+This demo shows a high-level ICNP flow (intent declaration, capability disclosure,
+contract negotiation, execution token) with animated edges. It does not display payloads.
 
 ```bash
 # Option 1: open directly in a browser
@@ -200,7 +186,8 @@ https://emmett08.github.io/ICNP_spec_schemas_ref_impl/reference-implementation/d
 
 ## Notes
 
-- This demo uses **HMAC-SHA256** signatures purely as a lightweight example.
+- Execution outputs are demo-level and are not defined by the ICNP schemas.
+- Token strings are demo HMAC-signed payloads; replace with JWT/PKI in real systems.
 - In a real system you would likely use asymmetric signatures (e.g. Ed25519) and proper key distribution.
 - The message structures match the schemas in `../schemas/`.
 

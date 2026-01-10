@@ -1,0 +1,159 @@
+{
+  "$comment": "Example: Deployment optimization with cost and compliance constraints",
+
+  "intent_declaration": {
+    "icnp_version": "1.0",
+    "phase": "intent_declaration",
+    "message_id": "660e8400-e29b-41d4-a716-446655440001",
+    "timestamp": "2024-01-15T02:00:00Z",
+    "intent": {
+      "action": "optimize-deployment-pipeline",
+      "goals": [
+        { "id": "reduce-mttr", "priority": "high", "metric": "MTTR < 15min" },
+        {
+          "id": "maintain-compliance",
+          "priority": "critical",
+          "standard": "SOC2"
+        },
+        {
+          "id": "reduce-costs",
+          "priority": "medium",
+          "metric": "cost reduction > 20%"
+        }
+      ],
+      "non_goals": [
+        {
+          "id": "no-prod-changes",
+          "reason": "safety constraint",
+          "severity": "hard"
+        },
+        { "id": "no-downtime", "reason": "SLA requirement", "severity": "hard" }
+      ],
+      "constraints": {
+        "cost": { "max": 50, "currency": "GBP", "period": "month" },
+        "latency": { "max_ms": 200, "percentile": 99 },
+        "data_residency": ["UK", "EU"],
+        "time_window": { "start": "02:00", "end": "06:00", "timezone": "UTC" }
+      },
+      "risk_tolerance": "low",
+      "human_approval_required": true,
+      "context": {
+        "business_unit": "platform-engineering",
+        "project": "ci-cd-optimization",
+        "environment": "staging",
+        "urgency": "scheduled"
+      }
+    },
+    "sender": {
+      "id": "deployment-orchestrator-001",
+      "type": "autonomous-agent",
+      "trust_level": "verified"
+    }
+  },
+
+  "capability_disclosure": {
+    "icnp_version": "1.0",
+    "phase": "capability_disclosure",
+    "in_reply_to": "660e8400-e29b-41d4-a716-446655440001",
+    "capabilities": [
+      {
+        "id": "pipeline-read",
+        "action": "read",
+        "scope": ["pipeline", "configuration", "metrics"],
+        "confidence": 0.99,
+        "requires_approval": false,
+        "side_effects": "none"
+      },
+      {
+        "id": "deploy-simulate",
+        "action": "simulate",
+        "scope": "deployment",
+        "confidence": 0.92,
+        "requires_approval": false,
+        "side_effects": "none"
+      },
+      {
+        "id": "config-suggest",
+        "action": "suggest",
+        "scope": "configuration",
+        "confidence": 0.88,
+        "requires_approval": false,
+        "side_effects": "none"
+      },
+      {
+        "id": "staging-deploy",
+        "action": "execute",
+        "scope": "staging",
+        "confidence": 0.95,
+        "requires_approval": true,
+        "side_effects": "moderate"
+      }
+    ],
+    "limitations": [
+      {
+        "id": "no-prod-write",
+        "action": "write",
+        "scope": "production",
+        "reason": "policy"
+      },
+      {
+        "id": "no-pii",
+        "action": "read",
+        "scope": "pii_data",
+        "reason": "compliance"
+      }
+    ],
+    "resource_requirements": {
+      "compute": { "cpu_cores": 4, "memory_gb": 8 },
+      "estimated_duration_seconds": 1800
+    },
+    "responder": {
+      "id": "deployment-optimizer-agent",
+      "version": "2.1.0",
+      "certifications": ["SOC2", "ISO27001", "GDPR"]
+    }
+  },
+
+  "contract": {
+    "icnp_version": "1.0",
+    "phase": "contract_negotiation",
+    "contract_id": "660e8400-e29b-41d4-a716-446655440002",
+    "agreed_actions": [
+      { "capability_id": "pipeline-read", "approved": true },
+      { "capability_id": "deploy-simulate", "approved": true },
+      { "capability_id": "config-suggest", "approved": true },
+      {
+        "capability_id": "staging-deploy",
+        "approved": true,
+        "max_invocations": 3
+      }
+    ],
+    "forbidden_actions": [
+      {
+        "action": "write",
+        "scope": "production",
+        "reason": "non-goal: no-prod-changes"
+      },
+      { "action": "read", "scope": "pii_data", "reason": "compliance" },
+      { "action": "delete", "scope": "any", "reason": "safety" }
+    ],
+    "execution_constraints": {
+      "audit_level": "full",
+      "logging_required": true,
+      "rollback_required": true,
+      "max_duration_seconds": 3600,
+      "checkpoint_interval_seconds": 300
+    },
+    "approval_chain": [
+      {
+        "approver": "platform-lead-bob",
+        "approved_at": "2024-01-15T01:55:00Z"
+      },
+      { "approver": "security-team", "approved_at": "2024-01-15T01:58:00Z" }
+    ],
+    "signatures": {
+      "initiator": "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0...",
+      "responder": "eyJhbGciOiJFZDI1NTE5IiwidHlwIjoiSldUIn0..."
+    }
+  }
+}
