@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ICNP Demo: Intent-Only Graph Flow</title>
+    <style>
+      :root {
+        --bg-1: #f7f1e6;
+        --bg-2: #dbe7e3;
+        --ink: #1c1b1a;
+        --muted: #5c5a57;
+        --panel: rgba(255, 255, 255, 0.7);
+        --panel-border: rgba(28, 27, 26, 0.12);
+        --accent: #e56b2d;
+        --accent-2: #1f7a8c;
+        --accent-3: #2d6a4f;
+        --accent-4: #b7791f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        font-family: "Avenir Next", "Futura", "Gill Sans", "Trebuchet MS", sans-serif;
+        background:
+          radial-gradient(900px 500px at 20% -10%, rgba(229, 107, 45, 0.18), transparent 60%),
+          radial-gradient(800px 420px at 90% 10%, rgba(31, 122, 140, 0.16), transparent 55%),
+          linear-gradient(135deg, var(--bg-1), var(--bg-2));
+        background-attachment: fixed;
+      }
+
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 20px;
+        padding: 28px clamp(20px, 4vw, 48px) 28px;
+      }
+
+      header {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        animation: fade-in 0.8s ease-out both;
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: clamp(28px, 3.4vw, 44px);
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      header p {
+        margin: 0;
+        max-width: 680px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.5;
+      }
+
+      .status {
+        margin-top: 10px;
+        display: grid;
+        gap: 4px;
+        padding: 14px 18px;
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        backdrop-filter: blur(12px);
+        max-width: 720px;
+      }
+
+      .status .label {
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .status .phase {
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .graph-card {
+        position: relative;
+        border-radius: 18px;
+        border: 1px solid var(--panel-border);
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(16px);
+        padding: 16px;
+        overflow: hidden;
+        min-height: 420px;
+        animation: lift-in 0.9s ease-out 0.1s both;
+      }
+
+      svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .node circle {
+        fill: #fffaf2;
+        stroke: rgba(28, 27, 26, 0.35);
+        stroke-width: 1.3;
+        filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.1));
+        transition: transform 0.3s ease, fill 0.3s ease, stroke 0.3s ease;
+      }
+
+      .node text {
+        font-size: 14px;
+        text-anchor: middle;
+        dominant-baseline: middle;
+        fill: var(--ink);
+        letter-spacing: 0.02em;
+      }
+
+      .node.orchestrator circle {
+        fill: rgba(229, 107, 45, 0.16);
+        stroke: rgba(229, 107, 45, 0.6);
+      }
+
+      .node.active circle {
+        fill: rgba(229, 107, 45, 0.22);
+        stroke: rgba(229, 107, 45, 0.9);
+      }
+
+      .node.target circle {
+        fill: rgba(31, 122, 140, 0.22);
+        stroke: rgba(31, 122, 140, 0.9);
+      }
+
+      .node.selected circle {
+        fill: rgba(45, 106, 79, 0.22);
+        stroke: rgba(45, 106, 79, 0.9);
+      }
+
+      .edge {
+        fill: none;
+        stroke-width: 2.2;
+        stroke-linecap: round;
+        stroke-dasharray: 10 8;
+        animation: dash 2.2s linear infinite;
+        opacity: 0.8;
+      }
+
+      .edge-static {
+        stroke-dasharray: none;
+        animation: none;
+      }
+
+      .edge-label {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        paint-order: stroke;
+        stroke: rgba(255, 255, 255, 0.8);
+        stroke-width: 3px;
+      }
+
+      .edge-dot {
+        filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 20px;
+        padding: 10px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .legend i {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      footer {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      @keyframes dash {
+        to {
+          stroke-dashoffset: -36;
+        }
+      }
+
+      @keyframes fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes lift-in {
+        from {
+          opacity: 0;
+          transform: translateY(18px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @media (max-width: 800px) {
+        .graph-card {
+          padding: 10px;
+        }
+
+        .node text {
+          font-size: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <h1>Intent-Only Graph Flow</h1>
+        <p>
+          Animated ICNP demo that shows high-level message passing only. No payloads are shown; the
+          graph highlights intent, capability, contract, token, and execution at a glance.
+        </p>
+        <div class="status">
+          <span class="label">Phase</span>
+          <span class="phase" id="phase-title">Intent broadcast</span>
+          <span id="phase-desc">Orchestrator shares the high-level goal with all agents.</span>
+        </div>
+      </header>
+
+      <div class="graph-card">
+        <svg id="graph" viewBox="0 0 1200 720" role="img" aria-labelledby="graph-title graph-desc">
+          <title id="graph-title">ICNP Intent Flow Graph</title>
+          <desc id="graph-desc">Animated intent flow between orchestrator and agents.</desc>
+        </svg>
+      </div>
+
+      <div class="legend">
+        <span><i style="background: var(--accent)"></i> intent</span>
+        <span><i style="background: var(--accent-2)"></i> capability</span>
+        <span><i style="background: var(--accent-4)"></i> contract + token</span>
+        <span><i style="background: var(--accent-3)"></i> execution + result</span>
+      </div>
+
+      <footer>
+        Demo visualization only. It does not represent actual transport or payload semantics.
+      </footer>
+    </div>
+
+    <script>
+      (() => {
+        const svg = document.getElementById("graph");
+        const phaseTitle = document.getElementById("phase-title");
+        const phaseDesc = document.getElementById("phase-desc");
+        const svgNS = "http://www.w3.org/2000/svg";
+        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        const nodes = [
+          { id: "orchestrator", label: "Orchestrator", x: 600, y: 120, role: "orchestrator" },
+          { id: "planner", label: "Planner", x: 160, y: 320 },
+          { id: "writer", label: "Writer", x: 250, y: 510 },
+          { id: "reviewer", label: "Reviewer", x: 420, y: 630 },
+          { id: "summariser", label: "Summariser", x: 600, y: 650 },
+          { id: "classifier", label: "Classifier", x: 780, y: 630 },
+          { id: "analyst", label: "Analyst", x: 950, y: 510 },
+          { id: "ranker", label: "Ranker", x: 1040, y: 320 },
+          { id: "translator", label: "Translator", x: 900, y: 210 },
+          { id: "validator", label: "Validator", x: 300, y: 210 }
+        ];
+
+        const colors = {
+          intent: "var(--accent)",
+          capability: "var(--accent-2)",
+          contract: "var(--accent-4)",
+          token: "var(--accent-4)",
+          execution: "var(--accent-3)",
+          result: "var(--accent-3)",
+          select: "var(--accent-4)"
+        };
+
+        const phases = [
+          {
+            title: "Intent broadcast",
+            desc: "Orchestrator shares the high-level goal with all agents.",
+            edges: nodes
+              .filter((n) => n.id !== "orchestrator")
+              .map((n) => ({ from: "orchestrator", to: n.id, label: "Intent", type: "intent" }))
+          },
+          {
+            title: "Capability disclosure",
+            desc: "Agents respond with the capabilities they can offer.",
+            edges: nodes
+              .filter((n) => n.id !== "orchestrator")
+              .map((n) => ({ from: n.id, to: "orchestrator", label: "Capability", type: "capability" }))
+          },
+          {
+            title: "Capability match",
+            desc: "Only the translator matches the requested action.",
+            highlight: ["translator"],
+            edges: [{ from: "orchestrator", to: "translator", label: "Select", type: "select", curve: -30 }]
+          },
+          {
+            title: "Contract + token",
+            desc: "A focused agreement is negotiated with the selected agent.",
+            highlight: ["translator"],
+            edges: [
+              { from: "orchestrator", to: "translator", label: "Contract", type: "contract", curve: -40 },
+              { from: "translator", to: "orchestrator", label: "Accept", type: "contract", curve: 0 },
+              { from: "orchestrator", to: "translator", label: "Token", type: "token", curve: 40 }
+            ]
+          },
+          {
+            title: "Execution",
+            desc: "The orchestrator sends the request and receives the result.",
+            highlight: ["translator"],
+            edges: [
+              { from: "orchestrator", to: "translator", label: "Execution", type: "execution", curve: -30 },
+              { from: "translator", to: "orchestrator", label: "Result", type: "result", curve: 30 }
+            ]
+          }
+        ];
+
+        const layers = {
+          edges: createGroup("edges"),
+          labels: createGroup("labels"),
+          nodes: createGroup("nodes")
+        };
+
+        const nodeRadius = 36;
+        const nodeById = new Map();
+
+        addDefs();
+        drawNodes();
+
+        let phaseIndex = 0;
+        renderPhase(phaseIndex);
+        setInterval(() => {
+          phaseIndex = (phaseIndex + 1) % phases.length;
+          renderPhase(phaseIndex);
+        }, 3600);
+
+        function createGroup(id) {
+          const g = document.createElementNS(svgNS, "g");
+          g.setAttribute("id", id);
+          svg.appendChild(g);
+          return g;
+        }
+
+        function addDefs() {
+          const defs = document.createElementNS(svgNS, "defs");
+          const marker = document.createElementNS(svgNS, "marker");
+          marker.setAttribute("id", "arrow");
+          marker.setAttribute("viewBox", "0 0 10 10");
+          marker.setAttribute("refX", "9");
+          marker.setAttribute("refY", "5");
+          marker.setAttribute("markerWidth", "6");
+          marker.setAttribute("markerHeight", "6");
+          marker.setAttribute("orient", "auto");
+          const path = document.createElementNS(svgNS, "path");
+          path.setAttribute("d", "M 0 0 L 10 5 L 0 10 z");
+          path.setAttribute("fill", "context-stroke");
+          marker.appendChild(path);
+          defs.appendChild(marker);
+          svg.appendChild(defs);
+        }
+
+        function drawNodes() {
+          nodes.forEach((node, index) => {
+            const group = document.createElementNS(svgNS, "g");
+            group.setAttribute("class", `node ${node.role === "orchestrator" ? "orchestrator" : ""}`);
+            group.setAttribute("data-id", node.id);
+            group.style.animation = `fade-in 0.8s ease-out ${0.12 * index}s both`;
+
+            const circle = document.createElementNS(svgNS, "circle");
+            circle.setAttribute("cx", node.x);
+            circle.setAttribute("cy", node.y);
+            circle.setAttribute("r", nodeRadius);
+
+            const label = document.createElementNS(svgNS, "text");
+            label.setAttribute("x", node.x);
+            label.setAttribute("y", node.y);
+            label.textContent = node.label;
+
+            group.appendChild(circle);
+            group.appendChild(label);
+            layers.nodes.appendChild(group);
+            nodeById.set(node.id, group);
+          });
+        }
+
+        function renderPhase(index) {
+          const phase = phases[index];
+          phaseTitle.textContent = phase.title;
+          phaseDesc.textContent = phase.desc;
+          clearLayer(layers.edges);
+          clearLayer(layers.labels);
+          clearNodeStates();
+
+          if (phase.highlight) {
+            phase.highlight.forEach((id) => addNodeState(id, "selected"));
+          }
+
+          const sources = new Set();
+          const targets = new Set();
+          phase.edges.forEach((edge, idx) => {
+            sources.add(edge.from);
+            targets.add(edge.to);
+            drawEdge(edge, idx);
+          });
+          sources.forEach((id) => addNodeState(id, "active"));
+          targets.forEach((id) => addNodeState(id, "target"));
+        }
+
+        function clearLayer(layer) {
+          while (layer.firstChild) {
+            layer.removeChild(layer.firstChild);
+          }
+        }
+
+        function clearNodeStates() {
+          nodes.forEach((node) => {
+            const group = nodeById.get(node.id);
+            if (!group) return;
+            group.classList.remove("active", "target", "selected");
+          });
+        }
+
+        function addNodeState(nodeId, state) {
+          const group = nodeById.get(nodeId);
+          if (group) {
+            group.classList.add(state);
+          }
+        }
+
+        function drawEdge(edge, idx) {
+          const from = nodes.find((n) => n.id === edge.from);
+          const to = nodes.find((n) => n.id === edge.to);
+          if (!from || !to) return;
+
+          const curve = edge.curve || 0;
+          const d = edgePath(from, to, curve);
+          const color = colors[edge.type] || "var(--accent)";
+
+          const path = document.createElementNS(svgNS, "path");
+          path.setAttribute("d", d);
+          path.setAttribute("stroke", color);
+          path.setAttribute("marker-end", "url(#arrow)");
+          path.setAttribute("class", `edge${reduceMotion ? " edge-static" : ""}`);
+          path.style.animationDelay = `${0.12 * idx}s`;
+          layers.edges.appendChild(path);
+
+          const labelPos = edgeLabelPosition(from, to, curve, edge.labelOffset || 14);
+          const label = document.createElementNS(svgNS, "text");
+          label.setAttribute("x", labelPos.x);
+          label.setAttribute("y", labelPos.y);
+          label.setAttribute("fill", color);
+          label.setAttribute("class", "edge-label");
+          label.textContent = edge.label;
+          layers.labels.appendChild(label);
+
+          if (!reduceMotion) {
+            const dot = document.createElementNS(svgNS, "circle");
+            dot.setAttribute("r", "4");
+            dot.setAttribute("fill", color);
+            dot.setAttribute("class", "edge-dot");
+
+            const motion = document.createElementNS(svgNS, "animateMotion");
+            motion.setAttribute("dur", "2.2s");
+            motion.setAttribute("repeatCount", "indefinite");
+            motion.setAttribute("path", d);
+            motion.setAttribute("begin", `${0.12 * idx}s`);
+            dot.appendChild(motion);
+            layers.edges.appendChild(dot);
+          }
+        }
+
+        function edgePath(from, to, curve) {
+          const dx = to.x - from.x;
+          const dy = to.y - from.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          const ux = dx / dist;
+          const uy = dy / dist;
+          const startX = from.x + ux * (nodeRadius + 8);
+          const startY = from.y + uy * (nodeRadius + 8);
+          const endX = to.x - ux * (nodeRadius + 8);
+          const endY = to.y - uy * (nodeRadius + 8);
+          const midX = (startX + endX) / 2 - uy * curve;
+          const midY = (startY + endY) / 2 + ux * curve;
+          return `M ${startX} ${startY} Q ${midX} ${midY} ${endX} ${endY}`;
+        }
+
+        function edgeLabelPosition(from, to, curve, offset) {
+          const dx = to.x - from.x;
+          const dy = to.y - from.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          const ux = dx / dist;
+          const uy = dy / dist;
+          const startX = from.x + ux * (nodeRadius + 8);
+          const startY = from.y + uy * (nodeRadius + 8);
+          const endX = to.x - ux * (nodeRadius + 8);
+          const endY = to.y - uy * (nodeRadius + 8);
+          const controlX = (startX + endX) / 2 - uy * curve;
+          const controlY = (startY + endY) / 2 + ux * curve;
+          const t = 0.5;
+          const x =
+            (1 - t) * (1 - t) * startX +
+            2 * (1 - t) * t * controlX +
+            t * t * endX;
+          const y =
+            (1 - t) * (1 - t) * startY +
+            2 * (1 - t) * t * controlY +
+            t * t * endY;
+          return {
+            x: x - uy * offset,
+            y: y + ux * offset
+          };
+        }
+      })();
+    </script>
+  </body>
+</html>

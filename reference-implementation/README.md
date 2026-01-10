@@ -129,6 +129,69 @@ Optional:
 
 ---
 
+## Additional demo: broadcast, single capability
+
+This demo broadcasts a request to many agents, but only one agent has the
+required capability. The orchestrator selects that agent and proceeds with a
+contract, token, and execution.
+
+```bash
+python demo_ollama_broadcast_single_capability.py --model llama3.1:8b
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant O as Orchestrator
+    participant P as Planner
+    participant W as Writer
+    participant R as Reviewer
+    participant S as Summariser
+    participant C as Classifier
+    participant A as Analyst
+    participant K as Ranker
+    participant T as Translator
+    participant V as Validator
+
+    O->>O: Intent declaration (broadcast)
+    P-->>O: Capability disclosure (compose_outline)
+    W-->>O: Capability disclosure (write_draft)
+    R-->>O: Capability disclosure (review_text)
+    S-->>O: Capability disclosure (summarise_text)
+    C-->>O: Capability disclosure (classify_tone)
+    A-->>O: Capability disclosure (analyze_data)
+    K-->>O: Capability disclosure (rank_options)
+    T-->>O: Capability disclosure (translate_text)
+    V-->>O: Capability disclosure (validate_output)
+
+    O->>O: Capability match (translate_text -> Translator)
+
+    O->>T: Contract proposal
+    T-->>O: Contract acceptance
+
+    O->>T: Execution token issuance
+    O->>T: Execution request (translate_text)
+    T-->>O: Execution result + audit event
+```
+
+---
+
+## Additional demo: animated intent graph (HTML)
+
+This demo shows a high-level, intent-only message flow with animated edges.
+It does not display payloads.
+
+```bash
+# Option 1: open directly in a browser
+open demo_graph_intent_flow.html
+
+# Option 2: serve from the repo root
+python -m http.server 8000
+# then open http://localhost:8000/reference-implementation/demo_graph_intent_flow.html
+```
+
+---
+
 ## Notes
 
 - This demo uses **HMAC-SHA256** signatures purely as a lightweight example.
